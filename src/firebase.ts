@@ -3,6 +3,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
   User,
@@ -12,7 +14,18 @@ import {
   doc,
   getDocFromServer,
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import defaultFirebaseConfig from '../firebase-applet-config.json';
+
+// Support both Vite environment variables (e.g. for GitHub Actions CI/Secrets) and local config fallback
+const firebaseConfig = {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultFirebaseConfig.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultFirebaseConfig.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultFirebaseConfig.authDomain,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || defaultFirebaseConfig.firestoreDatabaseId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultFirebaseConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultFirebaseConfig.messagingSenderId,
+};
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
@@ -82,13 +95,52 @@ export async function testFirestoreConnection() {
   }
 }
 
-// User sign in with Google Popup
-export async function loginWithGoogle(): Promise<User> {
+// Detect if running inside a mobile browser or PWA standalone
+export function isMobileOrPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  return isMobileUA || isStandalone;
+}
+
+// User sign in with Google (supports Popup + automatic Redirect fallback for mobile/PWA)
+export async function loginWithGoogle(forceRedirect = false): Promise<User | null> {
+  const isStandalone =
+    typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true);
+
+  if (forceRedirect || isStandalone) {
+    await signInWithRedirect(auth, googleProvider);
+    return null;
+  }
+
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (err: unknown) {
+    const errorCode = (err as { code?: string })?.code;
+    // If popup was blocked by mobile browser (e.g. Safari / Chrome), fallback to redirect
+    if (errorCode === 'auth/popup-blocked' || errorCode === 'auth/cancelled-popup-request') {
+      console.warn('Popup blocked, attempting redirect sign-in...');
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
     console.error('Google sign-in error:', err);
+    throw err;
+  }
+}
+
+// Check redirect result on app initialization (for redirect sign-in)
+export async function handleAuthRedirect(): Promise<User | null> {
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user || null;
+  } catch (err) {
+    console.error('Redirect sign-in error:', err);
     throw err;
   }
 }

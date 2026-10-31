@@ -9,7 +9,7 @@ import {
   syncLocalPlantsToCloud,
   loadDefaultPresets,
 } from './utils/db';
-import { loginWithGoogle, logoutUser, subscribeToAuth } from './firebase';
+import { loginWithGoogle, logoutUser, subscribeToAuth, handleAuthRedirect } from './firebase';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
 import { PlantCard } from './components/PlantCard';
@@ -18,6 +18,7 @@ import { PlantFormModal } from './components/PlantFormModal';
 import { BackupModal } from './components/BackupModal';
 import { GitHubPagesGuideModal } from './components/GitHubPagesGuideModal';
 import { AISettingsModal } from './components/AISettingsModal';
+import { LoginModal } from './components/LoginModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import {
   Sprout,
@@ -46,6 +47,7 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isGithubGuideOpen, setIsGithubGuideOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnlyFavorites, setIsOnlyFavorites] = useState(false);
 
   // Active View Tab
@@ -67,6 +69,11 @@ export default function App() {
 
   // Listen to Firebase Auth state & manage offline vs cloud sync
   useEffect(() => {
+    // Check if returning from a mobile redirect sign-in flow
+    handleAuthRedirect().catch((err) => {
+      console.warn('Redirect check error:', err);
+    });
+
     let unsubscribeFirestore: (() => void) | null = null;
 
     const unsubscribeAuth = subscribeToAuth(async (user) => {
@@ -117,15 +124,8 @@ export default function App() {
   }, []);
 
   // Authentication Handlers
-  const handleLogin = async () => {
-    try {
-      setIsSyncing(true);
-      await loginWithGoogle();
-    } catch (err) {
-      console.error('Login error:', err);
-    } finally {
-      setIsSyncing(false);
-    }
+  const handleLogin = () => {
+    setIsLoginModalOpen(true);
   };
 
   const handleLogout = async () => {
@@ -588,6 +588,12 @@ export default function App() {
       <AISettingsModal
         isOpen={isAiSettingsOpen}
         onClose={() => setIsAiSettingsOpen(false)}
+      />
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => setIsLoginModalOpen(false)}
       />
     </div>
   );

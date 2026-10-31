@@ -161,11 +161,11 @@ export const Navbar: React.FC<Props> = ({
           ) : (
             <button
               onClick={onLogin}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/60 text-emerald-300 hover:text-white transition cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-900/80 hover:bg-emerald-800 active:scale-95 border border-emerald-500/80 text-white transition cursor-pointer shrink-0 shadow-sm"
               title="登入 Google 帳號，跨手機與電腦同步植物圖鑑"
             >
-              <Cloud className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="hidden xs:inline">雲端同步</span>
+              <Cloud className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span className="font-medium text-xs whitespace-nowrap">雲端登入</span>
             </button>
           )}
 
@@ -251,10 +251,13 @@ export const Navbar: React.FC<Props> = ({
                       setShowMobileMenu(false);
                       onLogin();
                     }}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-950/50 flex items-center gap-2.5 text-emerald-300 transition border-b border-stone-800"
+                    className="w-full text-left px-3.5 py-3 hover:bg-emerald-950/70 bg-emerald-950/30 flex items-center gap-2.5 text-emerald-300 transition border-b border-stone-800"
                   >
                     <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>登入 Google 雲端同步</span>
+                    <div>
+                      <div className="font-semibold text-white">Google 雲端登入</div>
+                      <div className="text-[10px] text-emerald-400/90 font-normal">開啟手機跨裝置同步</div>
+                    </div>
                   </button>
                 ) : (
                   <div className="px-3.5 py-2 border-b border-stone-800 text-[11px]">
