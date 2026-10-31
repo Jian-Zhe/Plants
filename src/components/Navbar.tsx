@@ -76,7 +76,7 @@ export const Navbar: React.FC<Props> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h1 className="font-extrabold text-sm sm:text-lg tracking-tight text-white whitespace-nowrap">
-                植感野誌
+                植物大師
               </h1>
               {user ? (
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60 whitespace-nowrap">
