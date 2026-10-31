@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "description": "User email address" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "User avatar photo URL" },
+        "updatedAt": { "type": "string", "description": "Last profile update ISO timestamp" }
+      },
+      "required": ["uid"]
+    },
+    "Plant": {
+      "title": "Plant",
+      "description": "Wild plant entry created or edited by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique plant document ID" },
+        "userId": { "type": "string", "description": "Owner user UID" },
+        "name": { "type": "string", "description": "Plant common Chinese name", "maxLength": 100 },
+        "scientificName": { "type": "string", "description": "Full Latin binomial scientific name", "maxLength": 150 },
+        "aliases": { "type": "array", "description": "List of common aliases and folk names" },
+        "family": { "type": "string", "description": "Botanical family", "maxLength": 100 },
+        "category": { "type": "string", "description": "Plant category", "enum": ["wild", "cultivated", "herb", "medicinal", "starch", "fruit"] },
+        "edibleParts": { "type": "array", "description": "Edible parts" },
+        "characteristics": { "type": "object", "description": "Botanical morphological features" },
+        "preparation": { "type": "object", "description": "Wild survival preparation, detox, and cooking methods" },
+        "nutrition": { "type": "object", "description": "Nutritional values per 100g" },
+        "distribution": { "type": "object", "description": "Ecological habitat and elevation distribution" },
+        "images": { "type": "array", "description": "Plant photographs and captions" },
+        "userNotes": { "type": "string", "description": "User personal foraging notes and tips", "maxLength": 5000 },
+        "foragingLocations": { "type": "string", "description": "Locations where user found the plant", "maxLength": 2000 },
+        "isFavorite": { "type": "boolean", "description": "Marked as favorite" },
+        "rating": { "type": "number", "description": "Rating score 1 to 5" },
+        "isCustom": { "type": "boolean", "description": "Custom added plant flag" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "Last modification ISO timestamp" }
+      },
+      "required": ["id", "userId", "name", "family"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile information"
+    },
+    "/users/{userId}/plants/{plantId}": {
+      "schema": "Plant",
+      "description": "User's personalized wild plant notebook entries"
+    }
+  }
+}

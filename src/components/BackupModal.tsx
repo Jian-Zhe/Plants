@@ -1,6 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { X, Download, Upload, Trash2, CheckCircle, AlertTriangle, FileText, Sparkles } from 'lucide-react';
-import { exportPlantsJSON, importPlantsJSON, clearAllPlants, loadDefaultPresets, deletePresetPlantsOnly } from '../utils/db';
+import {
+  exportPlantsJSON,
+  importPlantsJSON,
+  clearAllPlants,
+  loadDefaultPresets,
+  deletePresetPlantsOnly,
+  getAllPlants,
+} from '../utils/db';
 import { PlantItem } from '../types/plant';
 
 interface Props {
@@ -8,9 +15,10 @@ interface Props {
   onClose: () => void;
   onDataChanged: (plants: PlantItem[]) => void;
   totalPlants: number;
+  userUid?: string | null;
 }
 
-export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, totalPlants }) => {
+export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, totalPlants, userUid }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,9 +53,8 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
       reader.onload = async (event) => {
         const text = event.target?.result as string;
         try {
-          const count = await importPlantsJSON(text);
-          setStatusMessage({ type: 'success', text: `成功匯入 ${count} 筆植物資料！` });
-          const { getAllPlants } = await import('../utils/db');
+          const count = await importPlantsJSON(text, userUid);
+          setStatusMessage({ type: 'success', text: `成功匯入 ${count} 筆植物資料！${userUid ? ' (已同步至雲端)' : ''}` });
           const updated = await getAllPlants();
           onDataChanged(updated);
         } catch (importErr) {
@@ -66,7 +73,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
     if (!window.confirm('確定要刪除所有預設的植物範本嗎？')) return;
     setIsProcessing(true);
     try {
-      const remaining = await deletePresetPlantsOnly();
+      const remaining = await deletePresetPlantsOnly(userUid);
       onDataChanged(remaining);
       setStatusMessage({ type: 'success', text: '已清除所有預設植物！' });
     } catch (err) {
@@ -80,7 +87,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
     if (!window.confirm('確定要清空所有植物資料嗎？此操作將清空目前所有紀錄。')) return;
     setIsProcessing(true);
     try {
-      await clearAllPlants();
+      await clearAllPlants(userUid);
       onDataChanged([]);
       setStatusMessage({ type: 'success', text: '已清空所有植物紀錄！' });
     } catch (err) {
@@ -94,7 +101,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
     if (!window.confirm('確定要將 18 種經典百科植物載入至您的圖鑑嗎？')) return;
     setIsProcessing(true);
     try {
-      const restored = await loadDefaultPresets();
+      const restored = await loadDefaultPresets(userUid);
       onDataChanged(restored);
       setStatusMessage({ type: 'success', text: '已載入 18 種植物範本！' });
     } catch (err) {

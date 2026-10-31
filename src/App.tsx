@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { User } from 'firebase/auth';
 import { PlantItem, PlantFilterOptions } from './types/plant';
-import { getAllPlants, savePlant, deletePlant } from './utils/db';
+import {
+  getAllPlants,
+  savePlant,
+  deletePlant,
+  subscribeToCloudPlants,
+  syncLocalPlantsToCloud,
+  loadDefaultPresets,
+} from './utils/db';
+import { loginWithGoogle, logoutUser, subscribeToAuth } from './firebase';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
 import { PlantCard } from './components/PlantCard';
@@ -27,6 +36,8 @@ import {
 export default function App() {
   const [plants, setPlants] = useState<PlantItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Active Modals State
   const [selectedPlant, setSelectedPlant] = useState<PlantItem | null>(null);
@@ -54,24 +65,80 @@ export default function App() {
     sortBy: 'updatedAt',
   });
 
-  // Load plants on mount
+  // Listen to Firebase Auth state & manage offline vs cloud sync
   useEffect(() => {
-    async function init() {
-      try {
-        const list = await getAllPlants();
-        setPlants(list);
-      } catch (err) {
-        console.error('Error loading plants', err);
-      } finally {
-        setIsLoading(false);
+    let unsubscribeFirestore: (() => void) | null = null;
+
+    const unsubscribeAuth = subscribeToAuth(async (user) => {
+      setCurrentUser(user);
+
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+        unsubscribeFirestore = null;
       }
-    }
-    init();
+
+      if (user) {
+        setIsSyncing(true);
+        try {
+          // If user has local plants, seamlessly sync them into cloud Firestore
+          const localList = await getAllPlants();
+          await syncLocalPlantsToCloud(user.uid, localList);
+
+          // Listen to real-time updates from user's Firestore collection
+          unsubscribeFirestore = subscribeToCloudPlants(user.uid, (cloudPlants) => {
+            setPlants(cloudPlants);
+            setIsSyncing(false);
+            setIsLoading(false);
+          });
+        } catch (err) {
+          console.error('Error during cloud sync setup:', err);
+          setIsSyncing(false);
+          setIsLoading(false);
+        }
+      } else {
+        // Offline / Guest Mode: load from IndexedDB
+        try {
+          const list = await getAllPlants();
+          setPlants(list);
+        } catch (err) {
+          console.error('Error loading plants', err);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeFirestore) {
+        unsubscribeFirestore();
+      }
+    };
   }, []);
 
-  // Save Plant Handler
+  // Authentication Handlers
+  const handleLogin = async () => {
+    try {
+      setIsSyncing(true);
+      await loginWithGoogle();
+    } catch (err) {
+      console.error('Login error:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
+
+  // Save Plant Handler (Local + Cloud if signed in)
   const handleSavePlant = async (saved: PlantItem) => {
-    await savePlant(saved);
+    await savePlant(saved, currentUser?.uid);
     setPlants((prev) => {
       const exists = prev.some((p) => p.id === saved.id);
       if (exists) {
@@ -81,9 +148,9 @@ export default function App() {
     });
   };
 
-  // Delete Plant Handler
+  // Delete Plant Handler (Local + Cloud if signed in)
   const handleDeletePlant = async (id: string) => {
-    await deletePlant(id);
+    await deletePlant(id, currentUser?.uid);
     setPlants((prev) => prev.filter((p) => p.id !== id));
     if (selectedPlant?.id === id) {
       setSelectedPlant(null);
@@ -97,7 +164,7 @@ export default function App() {
       isFavorite: !plant.isFavorite,
       updatedAt: new Date().toISOString(),
     };
-    await savePlant(updated);
+    await savePlant(updated, currentUser?.uid);
     setPlants((prev) => prev.map((p) => (p.id === plant.id ? updated : p)));
     if (selectedPlant?.id === plant.id) {
       setSelectedPlant(updated);
@@ -241,6 +308,10 @@ export default function App() {
         isOnlyFavorites={isOnlyFavorites}
         onToggleOnlyFavorites={() => setIsOnlyFavorites(!isOnlyFavorites)}
         favoritesCount={stats.favoritesCount}
+        user={currentUser}
+        isSyncing={isSyncing}
+        onLogin={handleLogin}
+        onLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex-1 w-full space-y-5">
@@ -352,8 +423,7 @@ export default function App() {
 
               <button
                 onClick={async () => {
-                  const { loadDefaultPresets } = await import('./utils/db');
-                  const restored = await loadDefaultPresets();
+                  const restored = await loadDefaultPresets(currentUser?.uid);
                   setPlants(restored);
                 }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs text-stone-300 transition cursor-pointer"
@@ -507,6 +577,7 @@ export default function App() {
         onClose={() => setIsBackupOpen(false)}
         onDataChanged={(updated) => setPlants(updated)}
         totalPlants={plants.length}
+        userUid={currentUser?.uid}
       />
 
       <GitHubPagesGuideModal

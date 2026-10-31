@@ -1,5 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sprout, Plus, Globe, Database, Sparkles, Heart, MoreVertical, X } from 'lucide-react';
+import {
+  Sprout,
+  Plus,
+  Globe,
+  Database,
+  Sparkles,
+  Heart,
+  MoreVertical,
+  Cloud,
+  CloudCheck,
+  LogOut,
+  User as UserIcon,
+} from 'lucide-react';
+import { User } from 'firebase/auth';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface Props {
@@ -10,6 +23,10 @@ interface Props {
   isOnlyFavorites: boolean;
   onToggleOnlyFavorites: () => void;
   favoritesCount: number;
+  user: User | null;
+  isSyncing: boolean;
+  onLogin: () => void;
+  onLogout: () => void;
 }
 
 export const Navbar: React.FC<Props> = ({
@@ -20,24 +37,33 @@ export const Navbar: React.FC<Props> = ({
   isOnlyFavorites,
   onToggleOnlyFavorites,
   favoritesCount,
+  user,
+  isSyncing,
+  onLogin,
+  onLogout,
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile dropdown when tapping outside
+  // Close dropdowns when tapping outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMobileMenu(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
     }
-    if (showMobileMenu) {
+    if (showMobileMenu || showUserMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showMobileMenu]);
+  }, [showMobileMenu, showUserMenu]);
 
   return (
     <header className="sticky top-0 z-40 bg-stone-900/95 backdrop-blur-md border-b border-stone-800">
@@ -52,9 +78,16 @@ export const Navbar: React.FC<Props> = ({
               <h1 className="font-extrabold text-sm sm:text-lg tracking-tight text-white whitespace-nowrap">
                 植感野誌
               </h1>
-              <span className="hidden lg:inline-block text-[11px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60 whitespace-nowrap">
-                PWA / GH-Pages Ready
-              </span>
+              {user ? (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60 whitespace-nowrap">
+                  <span className={`w-1.5 h-1.5 rounded-full bg-emerald-400 ${isSyncing ? 'animate-ping' : ''}`} />
+                  <span>{isSyncing ? '雲端同步中...' : '已連線 Firebase'}</span>
+                </span>
+              ) : (
+                <span className="hidden lg:inline-block text-[11px] font-mono text-stone-400 bg-stone-800/80 px-2 py-0.5 rounded-full border border-stone-700 whitespace-nowrap">
+                  本機離線模式
+                </span>
+              )}
             </div>
             <p className="text-[10px] sm:text-xs text-stone-400 truncate hidden md:block">
               特徵 · 營養 · 處理 · 生態分佈百科
@@ -64,6 +97,78 @@ export const Navbar: React.FC<Props> = ({
 
         {/* Right: Controls */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Cloud Sync / User Button */}
+          {user ? (
+            <div className="relative shrink-0" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-xl bg-stone-800/80 hover:bg-stone-700 border border-emerald-600/50 text-stone-200 transition cursor-pointer text-xs"
+                title={`${user.displayName || user.email} (Firebase 雲端已同步)`}
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName || 'User'}
+                    className="w-6 h-6 rounded-full border border-emerald-400/60 shrink-0"
+                  />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-emerald-800 text-emerald-200 flex items-center justify-center font-bold text-xs shrink-0">
+                    {(user.displayName || user.email || 'U')[0].toUpperCase()}
+                  </div>
+                )}
+                <span className="hidden sm:inline font-medium max-w-[80px] truncate text-emerald-300">
+                  {user.displayName?.split(' ')[0] || '我的雲端'}
+                </span>
+                <span className={`w-2 h-2 rounded-full bg-emerald-400 shrink-0 ${isSyncing ? 'animate-ping' : ''}`} />
+              </button>
+
+              {/* User Dropdown */}
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl p-2.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-2 py-1.5 border-b border-stone-800 pb-2 mb-1.5">
+                    <p className="font-semibold text-white truncate">{user.displayName || '植物紀錄家'}</p>
+                    <p className="text-[11px] text-stone-400 truncate">{user.email}</p>
+                    <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>Firebase 雲端即時同步中</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onOpenBackup();
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-stone-800 rounded-lg flex items-center gap-2 text-stone-300 transition"
+                  >
+                    <Database className="w-3.5 h-3.5 text-blue-400" />
+                    <span>備份與還原 (JSON)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onLogout();
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 hover:bg-rose-950/50 rounded-lg flex items-center gap-2 text-rose-300 transition mt-1"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <span>登出 Google 帳號</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onLogin}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/60 text-emerald-300 hover:text-white transition cursor-pointer shrink-0"
+              title="登入 Google 帳號，跨手機與電腦同步植物圖鑑"
+            >
+              <Cloud className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="hidden xs:inline">雲端同步</span>
+            </button>
+          )}
+
           {/* Favorites Toggle */}
           <button
             onClick={onToggleOnlyFavorites}
@@ -117,7 +222,7 @@ export const Navbar: React.FC<Props> = ({
           {/* PWA Install Button */}
           <PWAInstallButton />
 
-          {/* Primary Add Plant Button (Guaranteed single line on all screen sizes) */}
+          {/* Primary Add Plant Button */}
           <button
             onClick={onAddClick}
             className="whitespace-nowrap shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-950/40 active:scale-95 transition cursor-pointer"
@@ -139,7 +244,25 @@ export const Navbar: React.FC<Props> = ({
             </button>
 
             {showMobileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl py-1.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl py-1.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
+                {!user ? (
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      onLogin();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-950/50 flex items-center gap-2.5 text-emerald-300 transition border-b border-stone-800"
+                  >
+                    <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>登入 Google 雲端同步</span>
+                  </button>
+                ) : (
+                  <div className="px-3.5 py-2 border-b border-stone-800 text-[11px]">
+                    <div className="text-emerald-300 font-medium truncate">{user.displayName || user.email}</div>
+                    <div className="text-stone-400 text-[10px]">☁️ Firebase 雲端同步中</div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => {
                     setShowMobileMenu(false);
@@ -172,6 +295,19 @@ export const Navbar: React.FC<Props> = ({
                   <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                   <span>AI 智能填寫設定</span>
                 </button>
+
+                {user && (
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      onLogout();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-rose-950/50 flex items-center gap-2.5 text-rose-300 transition border-t border-stone-800"
+                  >
+                    <LogOut className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>登出 Google 帳號</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

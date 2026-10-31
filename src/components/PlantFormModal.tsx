@@ -441,14 +441,18 @@ export const PlantFormModal: React.FC<Props> = ({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const scale = Math.min(1, MAX_WIDTH / img.width);
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
+        const MAX_DIM = 1000;
+        const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          // Try webp first for maximum compression, fallback to jpeg
+          let compressed = canvas.toDataURL('image/webp', 0.8);
+          if (!compressed.startsWith('data:image/webp')) {
+            compressed = canvas.toDataURL('image/jpeg', 0.78);
+          }
           const newImg: PlantImage = {
             id: 'img-' + Date.now() + Math.random().toString(36).substr(2, 4),
             dataUrl: compressed,

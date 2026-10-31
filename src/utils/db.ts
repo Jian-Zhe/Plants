@@ -1,5 +1,15 @@
 import { PlantItem } from '../types/plant';
 import { INITIAL_PLANTS } from '../data/plantPresets';
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  writeBatch,
+  getDocs,
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 
 const DB_NAME = 'BotanicaLogDB';
 const DB_VERSION = 1;
@@ -18,9 +28,9 @@ function openDB(): Promise<IDBDatabase> {
     const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      const idb = (event.target as IDBOpenDBRequest).result;
+      if (!idb.objectStoreNames.contains(STORE_NAME)) {
+        const store = idb.createObjectStore(STORE_NAME, { keyPath: 'id' });
         store.createIndex('family', 'family', { unique: false });
         store.createIndex('updatedAt', 'updatedAt', { unique: false });
       }
@@ -58,16 +68,14 @@ function saveLocalPlants(plants: PlantItem[]) {
   }
 }
 
-// Load all plants (presets are deleted, starts empty for user's own plants)
+// Load all plants from local cache/IndexedDB
 export async function getAllPlants(): Promise<PlantItem[]> {
   try {
-    const db = await openDB();
-
-    // Check if we need to purge default presets from existing local database
+    const idb = await openDB();
     const hasPurgedPresets = typeof window !== 'undefined' ? localStorage.getItem(PRESETS_CLEARED_FLAG) : 'true';
 
     return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const tx = idb.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
       const req = store.getAll();
 
@@ -76,7 +84,6 @@ export async function getAllPlants(): Promise<PlantItem[]> {
 
         // If user requested to delete presets or on first load with presets
         if (!hasPurgedPresets) {
-          // Remove all preset-* items from IndexedDB
           const userOnly = list.filter((p) => !p.id.startsWith('preset-'));
           for (const item of list) {
             if (item.id.startsWith('preset-')) {
@@ -103,11 +110,12 @@ export async function getAllPlants(): Promise<PlantItem[]> {
   }
 }
 
-// Save or update single plant
-export async function savePlant(plant: PlantItem): Promise<void> {
+// Save or update single plant (to Local IndexedDB + optional Firebase Cloud)
+export async function savePlant(plant: PlantItem, userUid?: string | null): Promise<void> {
+  // 1. Save to local IndexedDB
   try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.put(plant);
   } catch (err) {
@@ -118,13 +126,28 @@ export async function savePlant(plant: PlantItem): Promise<void> {
   const current = getLocalPlants().filter((p) => p.id !== plant.id);
   current.unshift(plant);
   saveLocalPlants(current);
+
+  // 2. If logged in with Firebase, sync to Firestore
+  if (userUid) {
+    const docPath = `users/${userUid}/plants/${plant.id}`;
+    try {
+      const payload = {
+        ...plant,
+        userId: userUid,
+        updatedAt: plant.updatedAt || new Date().toISOString(),
+      };
+      await setDoc(doc(db, 'users', userUid, 'plants', plant.id), payload);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, docPath);
+    }
+  }
 }
 
-// Delete single plant
-export async function deletePlant(id: string): Promise<void> {
+// Delete single plant (from Local + optional Firebase Cloud)
+export async function deletePlant(id: string, userUid?: string | null): Promise<void> {
   try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.delete(id);
   } catch (err) {
@@ -133,13 +156,93 @@ export async function deletePlant(id: string): Promise<void> {
 
   const current = getLocalPlants().filter((p) => p.id !== id);
   saveLocalPlants(current);
+
+  if (userUid) {
+    const docPath = `users/${userUid}/plants/${id}`;
+    try {
+      await deleteDoc(doc(db, 'users', userUid, 'plants', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, docPath);
+    }
+  }
+}
+
+// Subscribe to real-time changes in Firestore when user is logged in
+export function subscribeToCloudPlants(
+  userUid: string,
+  onUpdate: (plants: PlantItem[]) => void
+): () => void {
+  const collectionPath = `users/${userUid}/plants`;
+  const plantsCol = collection(db, 'users', userUid, 'plants');
+
+  return onSnapshot(
+    plantsCol,
+    async (snapshot) => {
+      const cloudPlants: PlantItem[] = [];
+      snapshot.forEach((d) => {
+        cloudPlants.push(d.data() as PlantItem);
+      });
+
+      // Update local storage/IndexedDB cache
+      try {
+        const idb = await openDB();
+        const tx = idb.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        for (const p of cloudPlants) {
+          store.put(p);
+        }
+      } catch (e) {
+        console.warn('Failed caching cloud plants into IDB:', e);
+      }
+      saveLocalPlants(cloudPlants);
+
+      onUpdate(cloudPlants);
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, collectionPath);
+    }
+  );
+}
+
+// Upload existing local plants to cloud upon user login
+export async function syncLocalPlantsToCloud(userUid: string, localPlants: PlantItem[]): Promise<number> {
+  if (!userUid || localPlants.length === 0) return 0;
+
+  try {
+    const collectionPath = `users/${userUid}/plants`;
+    const existingSnap = await getDocs(collection(db, 'users', userUid, 'plants'));
+    const existingIds = new Set(existingSnap.docs.map((d) => d.id));
+
+    let uploadedCount = 0;
+    const batch = writeBatch(db);
+
+    for (const plant of localPlants) {
+      if (!existingIds.has(plant.id)) {
+        const docRef = doc(db, 'users', userUid, 'plants', plant.id);
+        batch.set(docRef, {
+          ...plant,
+          userId: userUid,
+          updatedAt: plant.updatedAt || new Date().toISOString(),
+        });
+        uploadedCount++;
+      }
+    }
+
+    if (uploadedCount > 0) {
+      await batch.commit();
+    }
+    return uploadedCount;
+  } catch (err) {
+    console.error('Error syncing local plants to cloud:', err);
+    return 0;
+  }
 }
 
 // Clear all plants completely
-export async function clearAllPlants(): Promise<void> {
+export async function clearAllPlants(userUid?: string | null): Promise<void> {
   try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.clear();
   } catch (err) {
@@ -148,64 +251,106 @@ export async function clearAllPlants(): Promise<void> {
 
   localStorage.removeItem(LOCAL_STORAGE_BACKUP_KEY);
   localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
-}
 
-// Delete preset default plants only
-export async function deletePresetPlantsOnly(): Promise<PlantItem[]> {
-  try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.getAll();
-
-    return new Promise((resolve) => {
-      req.onsuccess = () => {
-        const list = (req.result as PlantItem[]) || [];
-        const kept = list.filter((p) => !p.id.startsWith('preset-'));
-        for (const item of list) {
-          if (item.id.startsWith('preset-')) {
-            store.delete(item.id);
-          }
-        }
-        saveLocalPlants(kept);
-        localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
-        resolve(kept);
-      };
-      req.onerror = () => {
-        const kept = getLocalPlants().filter((p) => !p.id.startsWith('preset-'));
-        saveLocalPlants(kept);
-        localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
-        resolve(kept);
-      };
-    });
-  } catch (err) {
-    const kept = getLocalPlants().filter((p) => !p.id.startsWith('preset-'));
-    saveLocalPlants(kept);
-    localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
-    return kept;
+  if (userUid) {
+    try {
+      const snap = await getDocs(collection(db, 'users', userUid, 'plants'));
+      const batch = writeBatch(db);
+      snap.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    } catch (err) {
+      console.error('Error clearing cloud plants', err);
+    }
   }
 }
 
-// Restore default presets if explicitly requested by user
-export async function loadDefaultPresets(): Promise<PlantItem[]> {
+// Delete only preset plants (leaving user custom entries)
+export async function deletePresetPlantsOnly(userUid?: string | null): Promise<PlantItem[]> {
+  const current = await getAllPlants();
+  const remaining = current.filter((p) => !p.id.startsWith('preset-'));
+
   try {
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
-    for (const plant of INITIAL_PLANTS) {
-      store.put(plant);
+    for (const p of current) {
+      if (p.id.startsWith('preset-')) {
+        store.delete(p.id);
+      }
     }
   } catch (err) {
-    console.warn('Error restoring presets to IndexedDB', err);
+    console.warn('Error deleting presets from IDB', err);
   }
 
-  saveLocalPlants(INITIAL_PLANTS);
-  return INITIAL_PLANTS;
+  saveLocalPlants(remaining);
+  localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
+
+  if (userUid) {
+    try {
+      const snap = await getDocs(collection(db, 'users', userUid, 'plants'));
+      const batch = writeBatch(db);
+      snap.forEach((d) => {
+        if (d.id.startsWith('preset-')) {
+          batch.delete(d.ref);
+        }
+      });
+      await batch.commit();
+    } catch (err) {
+      console.error('Error deleting presets from cloud', err);
+    }
+  }
+
+  return remaining;
 }
 
-// Export all plants to JSON string
-export async function exportPlantsJSON(): Promise<string> {
-  const plants = await getAllPlants();
+// Load default 18 preset plants
+export async function loadDefaultPresets(userUid?: string | null): Promise<PlantItem[]> {
+  const current = await getAllPlants();
+  const existingMap = new Map(current.map((p) => [p.id, p]));
+
+  for (const preset of INITIAL_PLANTS) {
+    existingMap.set(preset.id, preset);
+  }
+
+  const combined = Array.from(existingMap.values());
+
+  try {
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    for (const preset of INITIAL_PLANTS) {
+      store.put(preset);
+    }
+  } catch (err) {
+    console.warn('Error loading presets to IDB', err);
+  }
+
+  saveLocalPlants(combined);
+  localStorage.removeItem(PRESETS_CLEARED_FLAG);
+
+  if (userUid) {
+    try {
+      const batch = writeBatch(db);
+      for (const preset of INITIAL_PLANTS) {
+        const docRef = doc(db, 'users', userUid, 'plants', preset.id);
+        batch.set(docRef, {
+          ...preset,
+          userId: userUid,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error('Error loading presets to cloud', err);
+    }
+  }
+
+  return combined;
+}
+
+// Export all plants to JSON string (compatible with original format)
+export async function exportPlantsJSON(currentPlants?: PlantItem[]): Promise<string> {
+  const plants = currentPlants || (await getAllPlants());
   return JSON.stringify(
     {
       version: '1.0',
@@ -218,17 +363,21 @@ export async function exportPlantsJSON(): Promise<string> {
   );
 }
 
-// Import plants from JSON
-export async function importPlantsJSON(jsonString: string): Promise<number> {
+// Import plants from JSON (works for both local and cloud modes)
+export async function importPlantsJSON(
+  jsonString: string,
+  userUid?: string | null
+): Promise<number> {
   try {
     const parsed = JSON.parse(jsonString);
     const plantList: PlantItem[] = Array.isArray(parsed) ? parsed : parsed.data;
     if (!Array.isArray(plantList)) {
-      throw new Error('Invalid JSON format: expecting plant array');
+      throw new Error('格式錯誤：無法讀取植物清單陣列');
     }
 
-    const db = await openDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
+    // 1. Save to local IndexedDB
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
 
     for (const p of plantList) {
@@ -238,6 +387,23 @@ export async function importPlantsJSON(jsonString: string): Promise<number> {
     }
 
     saveLocalPlants(plantList);
+
+    // 2. If logged in, also sync all imported plants into Firestore
+    if (userUid && plantList.length > 0) {
+      const batch = writeBatch(db);
+      for (const p of plantList) {
+        if (p.id && p.name) {
+          const docRef = doc(db, 'users', userUid, 'plants', p.id);
+          batch.set(docRef, {
+            ...p,
+            userId: userUid,
+            updatedAt: p.updatedAt || new Date().toISOString(),
+          });
+        }
+      }
+      await batch.commit();
+    }
+
     return plantList.length;
   } catch (err) {
     throw new Error('匯入失敗：' + (err instanceof Error ? err.message : String(err)));
