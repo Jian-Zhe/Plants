@@ -50,9 +50,9 @@ export const PlantFormModal: React.FC<Props> = ({
   const [scientificName, setScientificName] = useState('');
   const [aliases, setAliases] = useState<string[]>([]);
   const [aliasInput, setAliasInput] = useState('');
-  const [family, setFamily] = useState('菊科 (Asteraceae)');
+  const [family, setFamily] = useState('');
   const [category, setCategory] = useState<PlantCategory>('wild');
-  const [edibleParts, setEdibleParts] = useState<string[]>(['嫩莖葉']);
+  const [edibleParts, setEdibleParts] = useState<string[]>([]);
 
   // Characteristics
   const [leaves, setLeaves] = useState('');
@@ -63,7 +63,7 @@ export const PlantFormModal: React.FC<Props> = ({
 
   // Preparation
   const [prepMethod, setPrepMethod] = useState('');
-  const [cookingMethods, setCookingMethods] = useState<string[]>(['反覆換水沸煮脫澀', '石板野火烙炙']);
+  const [cookingMethods, setCookingMethods] = useState<string[]>([]);
   const [antinutrients, setAntinutrients] = useState('');
   const [antinutrientRemoval, setAntinutrientRemoval] = useState('');
   const [toxicity, setToxicity] = useState<ToxicityLevel>('none');
@@ -72,22 +72,22 @@ export const PlantFormModal: React.FC<Props> = ({
   const [storageMethod, setStorageMethod] = useState('');
 
   // Nutrition
-  const [calories, setCalories] = useState<number>(25);
-  const [protein, setProtein] = useState<number>(2.5);
-  const [carbohydrates, setCarbohydrates] = useState<number>(3.8);
-  const [fat, setFat] = useState<number>(0.3);
-  const [fiber, setFiber] = useState<number>(2.4);
-  const [calciumMg, setCalciumMg] = useState<number>(90);
-  const [ironMg, setIronMg] = useState<number>(2.5);
-  const [vitaminCMg, setVitaminCMg] = useState<number>(25);
-  const [potassiumMg, setPotassiumMg] = useState<number>(320);
+  const [calories, setCalories] = useState<number | ''>('');
+  const [protein, setProtein] = useState<number | ''>('');
+  const [carbohydrates, setCarbohydrates] = useState<number | ''>('');
+  const [fat, setFat] = useState<number | ''>('');
+  const [fiber, setFiber] = useState<number | ''>('');
+  const [calciumMg, setCalciumMg] = useState<number | ''>('');
+  const [ironMg, setIronMg] = useState<number | ''>('');
+  const [vitaminCMg, setVitaminCMg] = useState<number | ''>('');
+  const [potassiumMg, setPotassiumMg] = useState<number | ''>('');
 
   // Distribution
-  const [habitats, setHabitats] = useState<string[]>(['平地荒野']);
+  const [habitats, setHabitats] = useState<string[]>([]);
   const [elevation, setElevation] = useState<ElevationCategory>('low');
   const [elevationDesc, setElevationDesc] = useState('');
-  const [regions, setRegions] = useState<string[]>(['全台灣平野至淺山']);
-  const [seasons, setSeasons] = useState<string[]>(['春季', '夏季']);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [seasons, setSeasons] = useState<string[]>([]);
   const [abundance, setAbundance] = useState<AbundanceLevel>('common');
 
   // Media
@@ -177,7 +177,7 @@ export const PlantFormModal: React.FC<Props> = ({
       setAliases(editingPlant.aliases || []);
       setFamily(editingPlant.family);
       setCategory(editingPlant.category || 'wild');
-      setEdibleParts(editingPlant.edibleParts || ['嫩莖葉']);
+      setEdibleParts(editingPlant.edibleParts || []);
 
       setLeaves(editingPlant.characteristics.leaves);
       setStemAndRoots(editingPlant.characteristics.stemAndRoots);
@@ -199,10 +199,10 @@ export const PlantFormModal: React.FC<Props> = ({
       setCarbohydrates(editingPlant.nutrition.carbohydrates);
       setFat(editingPlant.nutrition.fat);
       setFiber(editingPlant.nutrition.fiber);
-      setCalciumMg(editingPlant.nutrition.micronutrients?.calciumMg || 0);
-      setIronMg(editingPlant.nutrition.micronutrients?.ironMg || 0);
-      setVitaminCMg(editingPlant.nutrition.micronutrients?.vitaminCMg || 0);
-      setPotassiumMg(editingPlant.nutrition.micronutrients?.potassiumMg || 0);
+      setCalciumMg(editingPlant.nutrition.micronutrients?.calciumMg ?? '');
+      setIronMg(editingPlant.nutrition.micronutrients?.ironMg ?? '');
+      setVitaminCMg(editingPlant.nutrition.micronutrients?.vitaminCMg ?? '');
+      setPotassiumMg(editingPlant.nutrition.micronutrients?.potassiumMg ?? '');
 
       setHabitats(editingPlant.distribution.habitat || []);
       setElevation(editingPlant.distribution.elevation || 'low');
@@ -224,9 +224,9 @@ export const PlantFormModal: React.FC<Props> = ({
     setScientificName('');
     setAliases([]);
     setAliasInput('');
-    setFamily('菊科 (Asteraceae)');
+    setFamily('');
     setCategory('wild');
-    setEdibleParts(['嫩莖葉']);
+    setEdibleParts([]);
 
     setLeaves('');
     setStemAndRoots('');
@@ -234,30 +234,30 @@ export const PlantFormModal: React.FC<Props> = ({
     setFruitsAndSeeds('');
     setDistinctiveFeatures('');
 
-    setPrepMethod('野外流水浸洗去雜質泥沙，滾水反覆沸煮換水脫苦澀。');
-    setCookingMethods(['反覆換水沸煮脫澀', '石板野火烙炙']);
+    setPrepMethod('');
+    setCookingMethods([]);
     setAntinutrients('');
     setAntinutrientRemoval('');
     setToxicity('none');
-    setToxicityNotes('安全可食');
-    setFlavorProfile('清新微苦草本風味');
-    setStorageMethod('生鮮陰涼處或日曬乾燥保存');
+    setToxicityNotes('');
+    setFlavorProfile('');
+    setStorageMethod('');
 
-    setCalories(25);
-    setProtein(2.5);
-    setCarbohydrates(3.8);
-    setFat(0.3);
-    setFiber(2.4);
-    setCalciumMg(90);
-    setIronMg(2.5);
-    setVitaminCMg(25);
-    setPotassiumMg(320);
+    setCalories('');
+    setProtein('');
+    setCarbohydrates('');
+    setFat('');
+    setFiber('');
+    setCalciumMg('');
+    setIronMg('');
+    setVitaminCMg('');
+    setPotassiumMg('');
 
-    setHabitats(['平地荒野']);
+    setHabitats([]);
     setElevation('low');
-    setElevationDesc('平地至低海拔開闊地');
-    setRegions(['全台灣平野至淺山']);
-    setSeasons(['春季', '夏季']);
+    setElevationDesc('');
+    setRegions([]);
+    setSeasons([]);
     setAbundance('common');
 
     setImages([]);
@@ -487,24 +487,30 @@ export const PlantFormModal: React.FC<Props> = ({
       return;
     }
 
+    const numCalories = calories !== '' ? Number(calories) : 0;
+    const numProtein = protein !== '' ? Number(protein) : 0;
+    const numCarbs = carbohydrates !== '' ? Number(carbohydrates) : 0;
+    const numFat = fat !== '' ? Number(fat) : 0;
+    const numFiber = fiber !== '' ? Number(fiber) : 0;
+
     const newPlant: PlantItem = {
-      id: editingPlant?.id || 'plant-' + Date.now() + Math.random().toString(36).substr(2, 4),
+      id: editingPlant?.id || 'plant-' + Date.now() + Math.random().toString(36).substring(2, 6),
       name: name.trim(),
       scientificName: scientificName.trim(),
-      aliases: aliases.length > 0 ? aliases : [name.trim()],
-      family: family.trim(),
+      aliases,
+      family: family.trim() || '未分類',
       category,
       edibleParts,
       characteristics: {
-        leaves: leaves.trim() || '無詳細記錄',
-        stemAndRoots: stemAndRoots.trim() || '無詳細記錄',
-        flowers: flowers.trim() || '無詳細記錄',
+        leaves: leaves.trim(),
+        stemAndRoots: stemAndRoots.trim(),
+        flowers: flowers.trim(),
         fruitsAndSeeds: fruitsAndSeeds.trim(),
-        distinctiveFeatures: distinctiveFeatures.trim() || '暫無防混淆辨識筆記',
+        distinctiveFeatures: distinctiveFeatures.trim(),
       },
       preparation: {
-        prepMethod: prepMethod.trim() || '野外處理',
-        cookingMethods: cookingMethods.length > 0 ? cookingMethods : ['反覆換水沸煮脫澀'],
+        prepMethod: prepMethod.trim(),
+        cookingMethods,
         antinutrients: antinutrients.trim(),
         antinutrientRemoval: antinutrientRemoval.trim(),
         toxicity,
@@ -513,29 +519,29 @@ export const PlantFormModal: React.FC<Props> = ({
         storageMethod: storageMethod.trim(),
       },
       nutrition: {
-        calories: Number(calories) || 20,
-        protein: Number(protein) || 2,
-        carbohydrates: Number(carbohydrates) || 4,
-        fat: Number(fat) || 0.3,
-        fiber: Number(fiber) || 2,
+        calories: numCalories,
+        protein: numProtein,
+        carbohydrates: numCarbs,
+        fat: numFat,
+        fiber: numFiber,
         micronutrients: {
-          calciumMg: Number(calciumMg) || undefined,
-          ironMg: Number(ironMg) || undefined,
-          vitaminCMg: Number(vitaminCMg) || undefined,
-          potassiumMg: Number(potassiumMg) || undefined,
+          calciumMg: calciumMg !== '' ? Number(calciumMg) : undefined,
+          ironMg: ironMg !== '' ? Number(ironMg) : undefined,
+          vitaminCMg: vitaminCMg !== '' ? Number(vitaminCMg) : undefined,
+          potassiumMg: potassiumMg !== '' ? Number(potassiumMg) : undefined,
         },
         nutritionHighlights: [
-          calories < 25 ? '低卡清爽' : calories > 80 ? '澱粉能量' : '熱量適中',
-          protein >= 3.5 ? '高蛋白質野菜' : '植物性蛋白質',
-          fiber >= 3 ? '高纖順暢' : '膳食纖維',
-        ],
+          numCalories > 0 ? (numCalories < 25 ? '低卡清爽' : numCalories > 80 ? '高熱量存糧' : '熱量適中') : '',
+          numProtein > 0 ? (numProtein >= 3 ? '高蛋白質野植' : '含植物性蛋白質') : '',
+          numFiber > 0 ? (numFiber >= 3 ? '高纖順暢' : '膳食纖維') : '',
+        ].filter(Boolean),
       },
       distribution: {
-        habitat: habitats.length > 0 ? habitats : ['平地荒野'],
+        habitat: habitats,
         elevation,
-        elevationDesc: elevationDesc.trim() || (elevation === 'low' ? '低海拔平地' : elevation === 'mid' ? '中海拔' : '高海拔'),
-        regions: regions.length > 0 ? regions : ['台灣平原與淺山'],
-        season: seasons.length > 0 ? seasons : ['全年'],
+        elevationDesc: elevationDesc.trim(),
+        regions,
+        season: seasons,
         abundance,
       },
       images,
@@ -648,7 +654,7 @@ export const PlantFormModal: React.FC<Props> = ({
                   <input
                     type="text"
                     required
-                    placeholder="例如：昭和草、龍葵、水芹菜"
+                    placeholder="輸入植物中文名稱"
                     value={name}
                     onChange={(e) => handleNameChange(e.target.value)}
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-sm font-medium"
@@ -711,7 +717,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：Solanum nigrum L."
+                  placeholder="輸入拉丁學名 (選填)"
                   value={scientificName}
                   onChange={(e) => setScientificName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-sm font-serif italic"
@@ -759,7 +765,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：烏甜仔菜, 黑天茄"
+                  placeholder="輸入別名/俗名，以逗號分隔 (選填)"
                   value={aliases.join(', ')}
                   onChange={(e) =>
                     setAliases(
@@ -939,7 +945,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="例如：單葉互生，卵形或卵狀橢圓形，邊緣波狀微齒..."
+                  placeholder="葉形、葉緣、質地等特徵描述..."
                   value={leaves}
                   onChange={(e) => setLeaves(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
@@ -952,7 +958,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="例如：直立草本，莖四稜形，具微毛，多分枝..."
+                  placeholder="直立或匍匐、地下根系等特徵描述..."
                   value={stemAndRoots}
                   onChange={(e) => setStemAndRoots(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
@@ -965,7 +971,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="例如：頭狀花序頂生，花瓣白色，花蕊黃色..."
+                  placeholder="花期、花色、花型等特徵描述..."
                   value={flowers}
                   onChange={(e) => setFlowers(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
@@ -978,7 +984,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="例如：瘦果黑色具倒刺，或球形黑紫色漿果..."
+                  placeholder="果實與種子形態..."
                   value={fruitsAndSeeds}
                   onChange={(e) => setFruitsAndSeeds(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
@@ -994,7 +1000,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <textarea
                 rows={2}
-                placeholder="例如：揉碎有茼蒿濃烈香氣；未熟綠色果實含生物鹼切勿食用..."
+                placeholder="關鍵鑑別要點、防混淆或防誤採警語..."
                 value={distinctiveFeatures}
                 onChange={(e) => setDistinctiveFeatures(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
@@ -1045,7 +1051,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                placeholder="例如：未成熟綠果含有生物鹼不可吃；葉子草酸較高先用熱水煮熟"
+                placeholder="毒性警語、食用限制..."
                 value={toxicityNotes}
                 onChange={(e) => setToxicityNotes(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs"
@@ -1060,7 +1066,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                placeholder="例如：高草酸、單寧酸、生物鹼 (龍葵鹼)、草酸鈣針晶、皂苷"
+                placeholder="草酸、單寧、生物鹼等抗營養因子..."
                 value={antinutrients}
                 onChange={(e) => setAntinutrients(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs placeholder-stone-600 focus:outline-none focus:border-rose-500"
@@ -1095,7 +1101,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <textarea
                 rows={2}
-                placeholder="例如：草木灰水鹼浸 6 小時中和草酸，入清流水浸洗沖去苦澀單寧；或以葉蛋白萃取 (LPC) 熱凝析出脫毒。"
+                placeholder="草木灰水鹼浸、流水浸洗、沸煮脫澀、葉蛋白萃取等手法..."
                 value={antinutrientRemoval}
                 onChange={(e) => setAntinutrientRemoval(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs placeholder-stone-600 focus:outline-none focus:border-amber-500"
@@ -1125,7 +1131,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <textarea
                 rows={2}
-                placeholder="例如：清水反覆沖淨泥沙，揉捻排除深色苦澀汁液，換水反覆滾沸 2 次..."
+                placeholder="清洗、殺青、脫澀、漂洗步驟..."
                 value={prepMethod}
                 onChange={(e) => setPrepMethod(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs placeholder-stone-600 focus:outline-none focus:border-emerald-500"
@@ -1168,7 +1174,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：微苦回甘、滑嫩爽脆、濃郁菊香"
+                  placeholder="野外口感、香氣與風味..."
                   value={flavorProfile}
                   onChange={(e) => setFlavorProfile(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs"
@@ -1181,7 +1187,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：噴少許水紙包冷藏約 3-4 天"
+                  placeholder="日曬乾燥、發酵、低溫保存等..."
                   value={storageMethod}
                   onChange={(e) => setStorageMethod(e.target.value)}
                   className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs"
@@ -1209,7 +1215,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   max="500"
                   step="1"
                   value={calories}
-                  onChange={(e) => setCalories(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setCalories(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-sm font-bold"
                 />
               </div>
@@ -1225,7 +1232,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   max="50"
                   step="0.1"
                   value={protein}
-                  onChange={(e) => setProtein(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setProtein(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-sm font-bold"
                 />
               </div>
@@ -1240,7 +1248,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   max="30"
                   step="0.1"
                   value={fiber}
-                  onChange={(e) => setFiber(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setFiber(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-sm font-bold"
                 />
               </div>
@@ -1255,7 +1264,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   max="100"
                   step="0.1"
                   value={carbohydrates}
-                  onChange={(e) => setCarbohydrates(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setCarbohydrates(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-sm font-bold"
                 />
               </div>
@@ -1270,7 +1280,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   max="50"
                   step="0.1"
                   value={fat}
-                  onChange={(e) => setFat(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setFat(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-sm font-bold"
                 />
               </div>
@@ -1283,7 +1294,8 @@ export const PlantFormModal: React.FC<Props> = ({
                 <input
                   type="number"
                   value={calciumMg}
-                  onChange={(e) => setCalciumMg(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setCalciumMg(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
                 />
               </div>
@@ -1293,7 +1305,8 @@ export const PlantFormModal: React.FC<Props> = ({
                   type="number"
                   step="0.1"
                   value={ironMg}
-                  onChange={(e) => setIronMg(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setIronMg(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
                 />
               </div>
@@ -1302,7 +1315,8 @@ export const PlantFormModal: React.FC<Props> = ({
                 <input
                   type="number"
                   value={vitaminCMg}
-                  onChange={(e) => setVitaminCMg(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setVitaminCMg(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
                 />
               </div>
@@ -1311,7 +1325,8 @@ export const PlantFormModal: React.FC<Props> = ({
                 <input
                   type="number"
                   value={potassiumMg}
-                  onChange={(e) => setPotassiumMg(Number(e.target.value))}
+                  placeholder="0"
+                  onChange={(e) => setPotassiumMg(e.target.value === '' ? '' : Number(e.target.value))}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-white text-xs"
                 />
               </div>
@@ -1373,7 +1388,7 @@ export const PlantFormModal: React.FC<Props> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="例如：海拔 0 - 1,200 公尺開闊向陽處"
+                  placeholder="分佈海拔詳細說明..."
                   value={elevationDesc}
                   onChange={(e) => setElevationDesc(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs"
@@ -1422,7 +1437,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                placeholder="例如：坪頂古圳步道旁、老家菜園水溝邊"
+                placeholder="採集地點、座標或路徑備註..."
                 value={foragingLocations}
                 onChange={(e) => setForagingLocations(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs"
@@ -1435,7 +1450,7 @@ export const PlantFormModal: React.FC<Props> = ({
               </label>
               <textarea
                 rows={2}
-                placeholder="例如：春季下雨後採嫩葉最甘甜；配鹹蛋炒比單炒更香濃！"
+                placeholder="個人採集心得、食用經驗紀錄..."
                 value={userNotes}
                 onChange={(e) => setUserNotes(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white text-xs leading-relaxed"

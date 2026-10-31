@@ -243,67 +243,7 @@ export default function App() {
         favoritesCount={stats.favoritesCount}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full space-y-6">
-        {/* Hero Insights Banner */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950/60 via-stone-900 to-stone-950 border border-emerald-800/40 p-5 sm:p-7 shadow-2xl">
-          {/* Subtle botanical background accent */}
-          <div className="absolute -right-8 -bottom-8 w-64 h-64 bg-emerald-700/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-900/60 border border-emerald-600/50 text-emerald-300 text-xs font-semibold">
-                <Compass className="w-3.5 h-3.5 text-emerald-400" />
-                野外圖鑑與食用營養資料庫
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                記錄植物特徵、營養熱量與生態分佈
-              </h2>
-              <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-                支援手機下載安裝 (PWA) 與 GitHub Pages 靜態託管。具備科別、每 100g 熱量、蛋白質與棲地海拔多維檢索，並內建百科範本與 AI 智能快速填寫。
-              </p>
-            </div>
-
-            {/* Quick Stat Chips */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 shrink-0">
-              <div className="p-3 rounded-2xl bg-stone-900/80 border border-stone-800 text-center">
-                <div className="text-[11px] text-stone-400 flex items-center justify-center gap-1">
-                  <Sprout className="w-3.5 h-3.5 text-emerald-400" />
-                  已收錄植物
-                </div>
-                <div className="text-xl font-black text-white mt-0.5">{stats.total} <span className="text-xs font-normal text-stone-500">種</span></div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-stone-900/80 border border-stone-800 text-center">
-                <div className="text-[11px] text-stone-400 flex items-center justify-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-purple-400" />
-                  涵蓋科別
-                </div>
-                <div className="text-xl font-black text-white mt-0.5">{stats.uniqueFamiliesCount} <span className="text-xs font-normal text-stone-500">科</span></div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-stone-900/80 border border-stone-800 text-center">
-                <div className="text-[11px] text-stone-400 flex items-center justify-center gap-1">
-                  <Zap className="w-3.5 h-3.5 text-blue-400" />
-                  高蛋白之王
-                </div>
-                <div className="text-xs font-bold text-blue-300 mt-1 truncate">
-                  {stats.topProteinPlant ? `${stats.topProteinPlant.name} (${stats.topProteinPlant.nutrition.protein}g)` : '尚未收錄'}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-stone-900/80 border border-stone-800 text-center">
-                <div className="text-[11px] text-stone-400 flex items-center justify-center gap-1">
-                  <Flame className="w-3.5 h-3.5 text-orange-400" />
-                  最低卡輕盈
-                </div>
-                <div className="text-xs font-bold text-orange-300 mt-1 truncate">
-                  {stats.lowestCaloriePlant ? `${stats.lowestCaloriePlant.name} (${stats.lowestCaloriePlant.nutrition.calories}kcal)` : '尚未收錄'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex-1 w-full space-y-5">
         {/* View Mode Switcher Tabs */}
         <div className="flex items-center justify-between border-b border-stone-800 pb-2">
           <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">

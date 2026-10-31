@@ -86,6 +86,55 @@ function mapRawToPlantItem(parsed: Record<string, any>, plantName: string): Part
   };
 }
 
+// Direct fast Gemini call for client-side / GitHub Pages usage
+async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Record<string, any>> {
+  // Use gemini-3.1-flash-lite first for lightning fast sub-second structured JSON response
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  let lastError: Error | null = null;
+
+  for (const model of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        }),
+        signal: AbortSignal.timeout(10000), // Max 10s per model to prevent long hangs
+      });
+
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        const msg = errorJson.error?.message || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '{}';
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`Model ${model} direct call attempt failed:`, lastError.message);
+    }
+  }
+
+  throw lastError || new Error('所有 Gemini 模型連線逾時或失敗');
+}
+
 // Generate structured plant information using Server Proxy or Client API Key
 // NOTE: Does NOT force preset override, so user can always generate real AI content!
 export async function generatePlantDetailsWithAI(plantName: string): Promise<Partial<PlantItem>> {
@@ -94,65 +143,44 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Par
     throw new Error('請輸入植物名稱');
   }
 
-  // 1. First, call our server-side API proxy (/api/gemini/generate)
-  try {
-    const res = await fetch('/api/gemini/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ plantName: cleanName }),
-    });
-
-    if (res.ok) {
-      const result = await res.json();
-      if (result.success && result.data) {
-        return mapRawToPlantItem(result.data, cleanName);
-      }
-    }
-  } catch (serverErr) {
-    console.warn('Server proxy unavailable, checking client fallback...', serverErr);
-  }
-
-  // 2. If running statically on GitHub Pages with no backend, check client-side GEMINI_API_KEY
   const clientKey = getStoredApiKey();
+  const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
+
+  // Case A: If user provided a client API Key, use direct fast REST immediately!
+  // This bypasses non-existent backend on GitHub Pages and responds in 1-2 seconds.
   if (clientKey) {
     try {
-      const ai = new GoogleGenAI({
-        apiKey: clientKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
-      });
+      const prompt = `請以「野外求生植物學家、野營覓食專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的求生食用與加工檔案。請以繁體中文 (Traditional Chinese) 提供。
 
-      const prompt = `請以野外求生植物學家身份，為「${cleanName}」生成野外求生食用檔案（繁體中文）。
-必須包含抗營養物質(草酸/單寧/生物鹼等)及消除手法，料理手法必須是求生加工手法（葉蛋白萃取、乳酸發酵、草木灰鹼浸、流水浸洗、石板烙炙、炭火煨熟等），食用部位可含一般根。
-回傳純 JSON：
+【重要準則】
+1. 料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤、日曬乾燥磨粉存糧等），【嚴禁】家常炒菜（如「蒜炒」、「煮蛋花湯」）。
+2. 必須詳加分析「抗營養物質 (Antinutrients)」（如：草酸、植酸、單寧/鞣酸、生物鹼、皂苷、草酸鈣針晶、胰蛋白酶抑制劑）與求生消除脫毒手法。
+3. 食用部位可包含「嫩莖葉」、「一般根」、「塊根塊莖」、「幼嫩芽梢」、「花苞與花」、「成熟果實」、「種子」、「全草」等。
+
+請嚴格遵照下列格式回傳純 JSON 物件：
 {
   "name": "${cleanName}",
-  "scientificName": "完整學名",
+  "scientificName": "完整學名 (含命名者縮寫)",
   "aliases": ["別名1"],
-  "family": "科別",
+  "family": "科別 (如：菊科 Asteraceae)",
   "category": "wild",
   "edibleParts": ["嫩莖葉", "一般根"],
   "characteristics": {
-    "leaves": "葉特徵",
+    "leaves": "葉部特徵 (葉形、葉緣、質地)",
     "stemAndRoots": "莖與根特徵",
-    "flowers": "花特徵",
-    "fruitsAndSeeds": "果實",
-    "distinctiveFeatures": "辨識防混淆要點"
+    "flowers": "花部特徵",
+    "fruitsAndSeeds": "果實與種子",
+    "distinctiveFeatures": "辨識要點與防誤採警語"
   },
   "preparation": {
-    "prepMethod": "求生脫毒步驟",
-    "cookingMethods": ["葉蛋白萃取 (榨汁熱凝)", "反覆換水沸煮脫澀", "草木灰水鹼浸脫毒"],
+    "prepMethod": "求生前置脫毒處理",
+    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀", "草木灰水鹼浸脫毒"],
     "toxicity": "none",
-    "toxicityNotes": "毒性警語",
-    "antinutrients": "含草酸與植酸",
-    "antinutrientRemoval": "草木灰鹼水浸泡中和、反覆換水滾沸",
-    "flavorProfile": "口感",
-    "storageMethod": "日曬乾燥磨粉"
+    "toxicityNotes": "毒性與安全警語",
+    "antinutrients": "含草酸、微量單寧與植酸",
+    "antinutrientRemoval": "草木灰水浸泡中和、反覆換水沸煮、葉蛋白熱凝分離",
+    "flavorProfile": "野外口感與風味",
+    "storageMethod": "日曬乾燥磨粉存糧"
   },
   "nutrition": {
     "calories": 25,
@@ -166,35 +194,49 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Par
       "vitaminCMg": 25,
       "potassiumMg": 320
     },
-    "nutritionHighlights": ["求生高纖"]
+    "nutritionHighlights": ["野生粗纖維", "求生植物性蛋白質"]
   },
   "distribution": {
-    "habitat": ["平地荒野"],
+    "habitat": ["平地荒野", "淺山林緣"],
     "elevation": "low",
-    "elevationDesc": "平地開闊向陽",
+    "elevationDesc": "平地至低海拔開闊地",
     "regions": ["全台廣布"],
     "season": ["春季", "夏季"],
     "abundance": "common"
   }
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const text = response.text?.trim() || '{}';
-      const parsed = JSON.parse(text);
+      const parsed = await callGeminiDirectFast(clientKey, prompt);
       return mapRawToPlantItem(parsed, cleanName);
     } catch (clientApiErr) {
-      console.warn('Client-side Gemini API call failed', clientApiErr);
+      console.warn('Client-side Gemini API call failed, falling back to smart template', clientApiErr);
     }
   }
 
-  // 3. Fallback to smart survival template so user is never blocked
+  // Case B: If not on GitHub Pages and no client key, try the server proxy with a strict 2.5s timeout guard
+  if (!isGitHubPages) {
+    try {
+      const res = await fetch('/api/gemini/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plantName: cleanName }),
+        signal: AbortSignal.timeout(2500),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && result.data) {
+          return mapRawToPlantItem(result.data, cleanName);
+        }
+      }
+    } catch (serverErr) {
+      console.warn('Server proxy unavailable or timed out, continuing...', serverErr);
+    }
+  }
+
+  // 3. Fallback to smart survival template so user is never blocked or waiting indefinitely
   return generateFallbackTemplate(cleanName);
 }
 

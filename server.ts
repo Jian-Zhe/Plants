@@ -98,7 +98,7 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
 - elevation 只能是 'low', 'mid', 'high', 'all' 之一
 - abundance 只能是 'abundant', 'common', 'occasional', 'rare' 之一`;
 
-    const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
 
     for (const model of candidateModels) {
       try {
