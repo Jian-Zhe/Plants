@@ -1,6 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
 import { PlantItem, ToxicityLevel, PlantCategory, ElevationCategory, AbundanceLevel } from '../types/plant';
 import { INITIAL_PLANTS } from '../data/plantPresets';
+import { inferBotanicalFallback, normalizeBotanicalFamily } from '../data/botanicalKnowledge';
 
 export function getStoredApiKey(): string {
   if (typeof window !== 'undefined') {
@@ -33,62 +33,118 @@ export function findPresetMatch(query: string): PlantItem | undefined {
   );
 }
 
-// Format raw JSON response into structured PlantItem fields
+// Format raw JSON response into structured PlantItem fields with taxonomy guarantees
 function mapRawToPlantItem(parsed: Record<string, any>, plantName: string): Partial<PlantItem> {
+  const fallback = inferBotanicalFallback(plantName);
+
+  // Normalize family string into standard format e.g. "菊科 (Asteraceae)"
+  const rawFamily = typeof parsed.family === 'string' ? parsed.family.trim() : '';
+  const family = rawFamily ? normalizeBotanicalFamily(rawFamily) : fallback.family;
+
+  // Ensure scientific name is not empty
+  const rawScientific = typeof parsed.scientificName === 'string' ? parsed.scientificName.trim() : '';
+  const scientificName = rawScientific || fallback.scientificName;
+
+  // Aliases
+  let aliases: string[] = [];
+  if (Array.isArray(parsed.aliases) && parsed.aliases.length > 0) {
+    aliases = parsed.aliases.map((a: unknown) => String(a).trim()).filter(Boolean);
+  } else {
+    aliases = fallback.aliases;
+  }
+
+  // Edible parts
+  let edibleParts: string[] = ['嫩莖葉', '一般根'];
+  if (Array.isArray(parsed.edibleParts) && parsed.edibleParts.length > 0) {
+    edibleParts = parsed.edibleParts.map((p: unknown) => String(p).trim()).filter(Boolean);
+  } else {
+    edibleParts = fallback.edibleParts;
+  }
+
+  // Cooking methods
+  let cookingMethods: string[] = fallback.preparation.cookingMethods;
+  if (Array.isArray(parsed.preparation?.cookingMethods) && parsed.preparation.cookingMethods.length > 0) {
+    cookingMethods = parsed.preparation.cookingMethods.map((m: unknown) => String(m).trim()).filter(Boolean);
+  }
+
+  // Nutrition numbers with reasonable defaults if missing
+  const calories = Number(parsed.nutrition?.calories) || fallback.nutrition.calories;
+  const protein = Number(parsed.nutrition?.protein) || fallback.nutrition.protein;
+  const carbohydrates = Number(parsed.nutrition?.carbohydrates) || fallback.nutrition.carbohydrates;
+  const fat = Number(parsed.nutrition?.fat) || fallback.nutrition.fat;
+  const fiber = Number(parsed.nutrition?.fiber) || fallback.nutrition.fiber;
+
+  const calciumMg = Number(parsed.nutrition?.micronutrients?.calciumMg) || fallback.nutrition.micronutrients?.calciumMg;
+  const ironMg = Number(parsed.nutrition?.micronutrients?.ironMg) || fallback.nutrition.micronutrients?.ironMg;
+  const vitaminCMg = Number(parsed.nutrition?.micronutrients?.vitaminCMg) || fallback.nutrition.micronutrients?.vitaminCMg;
+  const potassiumMg = Number(parsed.nutrition?.micronutrients?.potassiumMg) || fallback.nutrition.micronutrients?.potassiumMg;
+
+  // Distribution
+  const habitat = Array.isArray(parsed.distribution?.habitat) && parsed.distribution.habitat.length > 0
+    ? parsed.distribution.habitat.map((h: unknown) => String(h).trim()).filter(Boolean)
+    : fallback.distribution.habitat;
+
+  const regions = Array.isArray(parsed.distribution?.regions) && parsed.distribution.regions.length > 0
+    ? parsed.distribution.regions.map((r: unknown) => String(r).trim()).filter(Boolean)
+    : fallback.distribution.regions;
+
+  const season = Array.isArray(parsed.distribution?.season) && parsed.distribution.season.length > 0
+    ? parsed.distribution.season.map((s: unknown) => String(s).trim()).filter(Boolean)
+    : fallback.distribution.season;
+
   return {
     name: parsed.name || plantName,
-    scientificName: parsed.scientificName || '',
-    aliases: Array.isArray(parsed.aliases) ? parsed.aliases : [],
-    family: parsed.family || '常見草本植物科',
-    category: (parsed.category as PlantCategory) || 'wild',
-    edibleParts: Array.isArray(parsed.edibleParts) ? parsed.edibleParts : ['嫩莖葉', '一般根'],
+    scientificName,
+    aliases,
+    family,
+    category: (parsed.category as PlantCategory) || fallback.category,
+    edibleParts,
     characteristics: {
-      leaves: parsed.characteristics?.leaves || '',
-      stemAndRoots: parsed.characteristics?.stemAndRoots || '',
-      flowers: parsed.characteristics?.flowers || '',
-      fruitsAndSeeds: parsed.characteristics?.fruitsAndSeeds || '',
-      distinctiveFeatures: parsed.characteristics?.distinctiveFeatures || '',
+      leaves: parsed.characteristics?.leaves || fallback.characteristics.leaves,
+      stemAndRoots: parsed.characteristics?.stemAndRoots || fallback.characteristics.stemAndRoots,
+      flowers: parsed.characteristics?.flowers || fallback.characteristics.flowers,
+      fruitsAndSeeds: parsed.characteristics?.fruitsAndSeeds || fallback.characteristics.fruitsAndSeeds,
+      distinctiveFeatures: parsed.characteristics?.distinctiveFeatures || fallback.characteristics.distinctiveFeatures,
     },
     preparation: {
-      prepMethod: parsed.preparation?.prepMethod || '清水漂洗去除泥沙，經熱水沸煮殺青後再行利用。',
-      cookingMethods: Array.isArray(parsed.preparation?.cookingMethods) && parsed.preparation.cookingMethods.length > 0
-        ? parsed.preparation.cookingMethods
-        : ['反覆換水沸煮脫澀', '石板野火烙炙', '葉蛋白萃取 (榨汁熱凝)'],
-      toxicity: (parsed.preparation?.toxicity as ToxicityLevel) || 'none',
-      toxicityNotes: parsed.preparation?.toxicityNotes || '野生採集請確認物種無誤，生食宜慎。',
-      antinutrients: parsed.preparation?.antinutrients || '含微量草酸、植酸或單寧',
-      antinutrientRemoval: parsed.preparation?.antinutrientRemoval || '反覆換水沸煮、草木灰浸泡中和、乳酸發酵脫酸',
-      flavorProfile: parsed.preparation?.flavorProfile || '山野草本清香，處理後微甘。',
-      storageMethod: parsed.preparation?.storageMethod || '日曬乾燥磨粉、乳酸發酵貯存。',
+      prepMethod: parsed.preparation?.prepMethod || fallback.preparation.prepMethod,
+      cookingMethods,
+      toxicity: (parsed.preparation?.toxicity as ToxicityLevel) || fallback.preparation.toxicity,
+      toxicityNotes: parsed.preparation?.toxicityNotes || fallback.preparation.toxicityNotes,
+      antinutrients: parsed.preparation?.antinutrients || fallback.preparation.antinutrients,
+      antinutrientRemoval: parsed.preparation?.antinutrientRemoval || fallback.preparation.antinutrientRemoval,
+      flavorProfile: parsed.preparation?.flavorProfile || fallback.preparation.flavorProfile,
+      storageMethod: parsed.preparation?.storageMethod || fallback.preparation.storageMethod,
     },
     nutrition: {
-      calories: Number(parsed.nutrition?.calories) || 25,
-      protein: Number(parsed.nutrition?.protein) || 2.5,
-      carbohydrates: Number(parsed.nutrition?.carbohydrates) || 4.0,
-      fat: Number(parsed.nutrition?.fat) || 0.3,
-      fiber: Number(parsed.nutrition?.fiber) || 2.4,
+      calories,
+      protein,
+      carbohydrates,
+      fat,
+      fiber,
       micronutrients: {
-        calciumMg: Number(parsed.nutrition?.micronutrients?.calciumMg) || undefined,
-        ironMg: Number(parsed.nutrition?.micronutrients?.ironMg) || undefined,
-        vitaminCMg: Number(parsed.nutrition?.micronutrients?.vitaminCMg) || undefined,
-        potassiumMg: Number(parsed.nutrition?.micronutrients?.potassiumMg) || undefined,
+        calciumMg,
+        ironMg,
+        vitaminCMg,
+        potassiumMg,
       },
-      nutritionHighlights: Array.isArray(parsed.nutrition?.nutritionHighlights) ? parsed.nutrition.nutritionHighlights : ['野生粗膳食纖維', '求生植物蛋白質'],
+      nutritionHighlights: Array.isArray(parsed.nutrition?.nutritionHighlights) && parsed.nutrition.nutritionHighlights.length > 0
+        ? parsed.nutrition.nutritionHighlights
+        : fallback.nutrition.nutritionHighlights,
     },
     distribution: {
-      habitat: Array.isArray(parsed.distribution?.habitat) ? parsed.distribution.habitat : ['平地荒野', '淺山林緣'],
-      elevation: (parsed.distribution?.elevation as ElevationCategory) || 'low',
-      elevationDesc: parsed.distribution?.elevationDesc || '平地至低海拔開闊地',
-      regions: Array.isArray(parsed.distribution?.regions) ? parsed.distribution.regions : ['台灣中低海拔廣布'],
-      season: Array.isArray(parsed.distribution?.season) ? parsed.distribution.season : ['春季', '夏季'],
-      abundance: (parsed.distribution?.abundance as AbundanceLevel) || 'common',
+      habitat,
+      elevation: (parsed.distribution?.elevation as ElevationCategory) || fallback.distribution.elevation,
+      elevationDesc: parsed.distribution?.elevationDesc || fallback.distribution.elevationDesc,
+      regions,
+      season,
+      abundance: (parsed.distribution?.abundance as AbundanceLevel) || fallback.distribution.abundance,
     },
   };
 }
 
 // Direct fast Gemini call for client-side / GitHub Pages usage
 async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Record<string, any>> {
-  // Use gemini-3.1-flash-lite first for lightning fast sub-second structured JSON response
   const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
   let lastError: Error | null = null;
 
@@ -111,7 +167,7 @@ async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Rec
             temperature: 0.2,
           },
         }),
-        signal: AbortSignal.timeout(10000), // Max 10s per model to prevent long hangs
+        signal: AbortSignal.timeout(12000), // 12s per model
       });
 
       if (!res.ok) {
@@ -135,9 +191,21 @@ async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Rec
   throw lastError || new Error('所有 Gemini 模型連線逾時或失敗');
 }
 
+export type AutofillSource =
+  | 'gemini_direct'
+  | 'gemini_server'
+  | 'preset_library'
+  | 'botanical_knowledge';
+
+export interface AutofillResult {
+  data: Partial<PlantItem>;
+  source: AutofillSource;
+  sourceLabel: string;
+  sourceDescription: string;
+}
+
 // Generate structured plant information using Server Proxy or Client API Key
-// NOTE: Does NOT force preset override, so user can always generate real AI content!
-export async function generatePlantDetailsWithAI(plantName: string): Promise<Partial<PlantItem>> {
+export async function generatePlantDetailsWithAI(plantName: string): Promise<AutofillResult> {
   const cleanName = plantName.trim();
   if (!cleanName) {
     throw new Error('請輸入植物名稱');
@@ -146,45 +214,42 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Par
   const clientKey = getStoredApiKey();
   const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
 
-  // Case A: If user provided a client API Key, use direct fast REST immediately!
-  // This bypasses non-existent backend on GitHub Pages and responds in 1-2 seconds.
-  if (clientKey) {
-    try {
-      const prompt = `請以「野外求生植物學家、野營覓食專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的求生食用與加工檔案。請以繁體中文 (Traditional Chinese) 提供。
+  const detailedPrompt = `請以「野外求生植物學家、野營覓食專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的求生食用與加工檔案。請以繁體中文 (Traditional Chinese) 提供。
 
 【重要準則】
-1. 料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤、日曬乾燥磨粉存糧等），【嚴禁】家常炒菜（如「蒜炒」、「煮蛋花湯」）。
-2. 必須詳加分析「抗營養物質 (Antinutrients)」（如：草酸、植酸、單寧/鞣酸、生物鹼、皂苷、草酸鈣針晶、胰蛋白酶抑制劑）與求生消除脫毒手法。
-3. 食用部位可包含「嫩莖葉」、「一般根」、「塊根塊莖」、「幼嫩芽梢」、「花苞與花」、「成熟果實」、「種子」、「全草」等。
+1. 【完整學名與科別】：必須精準提供真實完整的拉丁學名 (含命名者縮寫，例如：Crassocephalum crepidioides (Benth.) S.Moore) 以及科別 (格式必須為：中文科名 (拉丁科名)，例如：菊科 (Asteraceae), 茄科 (Solanaceae), 豆科 (Fabaceae))。不可留空！
+2. 【野外求生風格料理】：料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤、日曬乾燥磨粉存糧、柴火低溫煙燻等），【嚴禁】出現家常炒菜（如「蒜炒」、「煮蛋花湯」）。
+3. 【抗營養物質分析】：必須詳加分析「抗營養物質 (Antinutrients)」（如：草酸、植酸、單寧/鞣酸、生物鹼、皂苷、草酸鈣針晶、胰蛋白酶抑制劑）與求生消除脫毒降解手法。
+4. 【物種專屬差異數據】：熱量、蛋白質、碳水化合物、纖維與微量元素必須具備植物專屬科學估計差異，不可千篇一律填入固定數值。
 
 請嚴格遵照下列格式回傳純 JSON 物件：
 {
   "name": "${cleanName}",
-  "scientificName": "完整學名 (含命名者縮寫)",
-  "aliases": ["別名1"],
-  "family": "科別 (如：菊科 Asteraceae)",
+  "scientificName": "完整拉丁學名 (含命名者縮寫)",
+  "aliases": ["常見俗名1", "別名2"],
+  "family": "中文科名 (拉丁科名)",
   "category": "wild",
   "edibleParts": ["嫩莖葉", "一般根"],
   "characteristics": {
-    "leaves": "葉部特徵 (葉形、葉緣、質地)",
-    "stemAndRoots": "莖與根特徵",
-    "flowers": "花部特徵",
-    "fruitsAndSeeds": "果實與種子",
-    "distinctiveFeatures": "辨識要點與防誤採警語"
+    "leaves": "葉部形態特徵 (葉形、葉緣、葉脈、質地)",
+    "stemAndRoots": "莖柱與根系（包含一般根或塊根）形態",
+    "flowers": "花部特徵 (花期、花型、花色)",
+    "fruitsAndSeeds": "果實與種子形態及傳播",
+    "distinctiveFeatures": "關鍵辨識要點與防混淆（避免誤採劇毒相近種）"
   },
   "preparation": {
-    "prepMethod": "求生前置脫毒處理",
-    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀", "草木灰水鹼浸脫毒"],
-    "toxicity": "none",
-    "toxicityNotes": "毒性與安全警語",
-    "antinutrients": "含草酸、微量單寧與植酸",
-    "antinutrientRemoval": "草木灰水浸泡中和、反覆換水沸煮、葉蛋白熱凝分離",
-    "flavorProfile": "野外口感與風味",
-    "storageMethod": "日曬乾燥磨粉存糧"
+    "prepMethod": "求生前置清洗與脫毒處理步驟",
+    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀", "草木灰水鹼浸脫毒", "石板野火烙炙"],
+    "toxicity": "caution",
+    "toxicityNotes": "毒性與安全警語 (生食風險、未熟風險等)",
+    "antinutrients": "該植物主要抗營養物質 (如草酸、單寧、生物鹼等)",
+    "antinutrientRemoval": "對應之求生消除與脫毒手法",
+    "flavorProfile": "野外口感與風味描述",
+    "storageMethod": "野外長效保存方式 (日曬磨粉、煙燻、發酵)"
   },
   "nutrition": {
     "calories": 25,
-    "protein": 2.5,
+    "protein": 2.8,
     "carbohydrates": 4.0,
     "fat": 0.3,
     "fiber": 2.5,
@@ -194,26 +259,35 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Par
       "vitaminCMg": 25,
       "potassiumMg": 320
     },
-    "nutritionHighlights": ["野生粗纖維", "求生植物性蛋白質"]
+    "nutritionHighlights": ["富含野生膳食纖維", "求生植物性蛋白質"]
   },
   "distribution": {
-    "habitat": ["平地荒野", "淺山林緣"],
+    "habitat": ["平地荒野", "淺山林緣向陽處"],
     "elevation": "low",
-    "elevationDesc": "平地至低海拔開闊地",
-    "regions": ["全台廣布"],
-    "season": ["春季", "夏季"],
+    "elevationDesc": "平地至低海拔開闊向陽地",
+    "regions": ["全島廣泛常見分佈"],
+    "season": ["春季", "夏季", "秋季"],
     "abundance": "common"
   }
 }`;
 
-      const parsed = await callGeminiDirectFast(clientKey, prompt);
-      return mapRawToPlantItem(parsed, cleanName);
+  // Case A: If user provided a client API Key, use direct fast REST
+  if (clientKey) {
+    try {
+      const parsed = await callGeminiDirectFast(clientKey, detailedPrompt);
+      const data = mapRawToPlantItem(parsed, cleanName);
+      return {
+        data,
+        source: 'gemini_direct',
+        sourceLabel: 'Gemini AI (個人 API 金鑰)',
+        sourceDescription: `已成功呼叫 Google Gemini 大模型，為「${cleanName}」即時專屬生成全新求生與植物學檔案！`,
+      };
     } catch (clientApiErr) {
-      console.warn('Client-side Gemini API call failed, falling back to smart template', clientApiErr);
+      console.warn('Client-side Gemini API call failed, attempting fallback...', clientApiErr);
     }
   }
 
-  // Case B: If not on GitHub Pages and no client key, try the server proxy with a strict 2.5s timeout guard
+  // Case B: If not on GitHub Pages, call server proxy (30s timeout so LLM has ample time)
   if (!isGitHubPages) {
     try {
       const res = await fetch('/api/gemini/generate', {
@@ -222,70 +296,44 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Par
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ plantName: cleanName }),
-        signal: AbortSignal.timeout(2500),
+        signal: AbortSignal.timeout(30000), // 30s timeout to allow full generation
       });
 
       if (res.ok) {
         const result = await res.json();
         if (result.success && result.data) {
-          return mapRawToPlantItem(result.data, cleanName);
+          const isRealAi = result.source === 'ai';
+          const data = mapRawToPlantItem(result.data, cleanName);
+          return {
+            data,
+            source: isRealAi ? 'gemini_server' : 'botanical_knowledge',
+            sourceLabel: isRealAi ? 'Gemini 3.1 Flash AI' : '內建植物學百科庫',
+            sourceDescription: isRealAi
+              ? `已成功透過雲端 Gemini AI 運算生成，為「${cleanName}」產出專屬求生食用與特徵資料！`
+              : `伺服器未啟用 AI 服務，已改由內建野外植物學百科庫為「${cleanName}」填入資料。`,
+          };
         }
       }
     } catch (serverErr) {
-      console.warn('Server proxy unavailable or timed out, continuing...', serverErr);
+      console.warn('Server proxy unavailable or timed out, continuing with botanical knowledge synthesis...', serverErr);
     }
   }
 
-  // 3. Fallback to smart survival template so user is never blocked or waiting indefinitely
-  return generateFallbackTemplate(cleanName);
-}
+  // Case C: Botanical database knowledge synthesis (species-specific, complete taxonomy guaranteed)
+  const fallback = inferBotanicalFallback(cleanName);
+  const isPreset = INITIAL_PLANTS.some(
+    (p) => p.name.includes(cleanName) || cleanName.includes(p.name)
+  );
 
-function generateFallbackTemplate(plantName: string): Partial<PlantItem> {
   return {
-    name: plantName,
-    scientificName: '',
-    aliases: [],
-    family: '野外常見草本植物科',
-    category: 'wild',
-    edibleParts: ['幼嫩葉', '一般根', '幼嫩芽梢'],
-    characteristics: {
-      leaves: '單葉互生或對生，葉片質地柔嫩多汁，富含植物性水分。',
-      stemAndRoots: '具直立或斜升之莖，主根或一般根系發達，可於危急時掘出清洗應急。',
-      flowers: '花序頂生或腋生，花期多在春至秋季。',
-      fruitsAndSeeds: '果實種子多數，成熟時可採集磨粉充作野外緊急熱量。',
-      distinctiveFeatures: `野外求生採集「${plantName}」時務必確認氣味與乳汁特徵，避免誤採劇毒相近種。`,
+    data: {
+      ...fallback,
+      name: cleanName,
     },
-    preparation: {
-      prepMethod: '摘取嫩芽或刷洗一般根部泥沙。求生環境下務必入滾水反覆沸煮殺青 2 回，去苦澀與微毒。',
-      cookingMethods: ['葉蛋白萃取 (榨汁熱凝)', '反覆換水沸煮脫澀', '草木灰水鹼浸脫毒', '石板野火烙炙'],
-      toxicity: 'caution',
-      toxicityNotes: '野生採集宜熟食，確認無刺激性毒性後方可少量試食 (Universal Edibility Test)。',
-      antinutrients: '草酸 (Oxalate)、植酸 (Phytate)、微量單寧',
-      antinutrientRemoval: '反覆換水沸煮殺青、草木灰水浸泡中和、搾汁加熱凝聚葉蛋白分離纖維與草酸',
-      flavorProfile: '帶有濃郁山林青草芬芳，脫毒後微苦甘甜。',
-      storageMethod: '烈日曝曬乾燥後搗碎成野外備用能量粉，或煙燻乾燥。',
-    },
-    nutrition: {
-      calories: 25,
-      protein: 2.6,
-      carbohydrates: 3.8,
-      fat: 0.3,
-      fiber: 2.4,
-      micronutrients: {
-        calciumMg: 95,
-        ironMg: 2.8,
-        vitaminCMg: 30,
-        potassiumMg: 350,
-      },
-      nutritionHighlights: ['天然野生粗纖維', '求生植物蛋白質', '低卡抗氧化'],
-    },
-    distribution: {
-      habitat: ['平地荒野', '休耕田埂', '淺山林緣向陽處'],
-      elevation: 'low',
-      elevationDesc: '海平面至海拔 1,000 公尺向陽地帶',
-      regions: ['台灣平野及低海拔山區常見'],
-      season: ['春季', '夏季', '秋季'],
-      abundance: 'common',
-    },
+    source: isPreset ? 'preset_library' : 'botanical_knowledge',
+    sourceLabel: isPreset ? '內建經典植物圖鑑' : '內建植物學百科庫 (離線兜底)',
+    sourceDescription: isGitHubPages && !clientKey
+      ? `目前在 GitHub Pages 靜態網站且未設定 API Key，已由系統內建植物學百科庫為「${cleanName}」填入資料。若需真實 AI 即時生成，請點擊右上角設定 API Key！`
+      : `目前未連線至 AI 伺服器，已由系統內建野外植物學百科庫為「${cleanName}」完成填入。`,
   };
 }

@@ -8,7 +8,7 @@ import {
   PlantImage,
 } from '../types/plant';
 import { INITIAL_PLANTS } from '../data/plantPresets';
-import { generatePlantDetailsWithAI, findPresetMatch } from '../utils/gemini';
+import { generatePlantDetailsWithAI, findPresetMatch, AutofillResult } from '../utils/gemini';
 import {
   X,
   Sparkles,
@@ -27,6 +27,7 @@ import {
   Mountain,
   ChevronDown,
   ChevronUp,
+  Database,
 } from 'lucide-react';
 
 interface Props {
@@ -105,6 +106,10 @@ export const PlantFormModal: React.FC<Props> = ({
   const [showPresetsDropdown, setShowPresetsDropdown] = useState(false);
   const [dismissedPresetNames, setDismissedPresetNames] = useState<string[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [autofillStatus, setAutofillStatus] = useState<AutofillResult | null>(null);
+  const [showHelperBanner, setShowHelperBanner] = useState<boolean>(() => {
+    return localStorage.getItem('wildplants_hide_helper_banner') !== 'true';
+  });
 
   // Quick preset families
   const commonFamilies = [
@@ -263,6 +268,7 @@ export const PlantFormModal: React.FC<Props> = ({
     setImages([]);
     setUserNotes('');
     setForagingLocations('');
+    setAutofillStatus(null);
   };
 
   // Preset match detector on name change (honors dismissals)
@@ -337,6 +343,13 @@ export const PlantFormModal: React.FC<Props> = ({
       setImages(preset.images);
     }
 
+    setAutofillStatus({
+      source: 'preset_library',
+      sourceLabel: '內建經典植物範本',
+      sourceDescription: `已成功套用內建經典植物「${preset.name}」完整圖鑑與求生資料（包含學名、科別、特徵與分佈）。`,
+      data: preset,
+    });
+
     setShowPresetsDropdown(false);
   };
 
@@ -351,52 +364,62 @@ export const PlantFormModal: React.FC<Props> = ({
     setAiError(null);
 
     try {
-      const generated = await generatePlantDetailsWithAI(name.trim());
+      const result = await generatePlantDetailsWithAI(name.trim());
+      setAutofillStatus(result);
+      const generated = result.data;
 
+      // 1. Basic Info & Taxonomy
       if (generated.scientificName) setScientificName(generated.scientificName);
-      if (generated.aliases && generated.aliases.length > 0) setAliases(generated.aliases);
       if (generated.family) setFamily(generated.family);
+      if (generated.aliases && generated.aliases.length > 0) setAliases(generated.aliases);
       if (generated.category) setCategory(generated.category);
-      if (generated.edibleParts) setEdibleParts(generated.edibleParts);
+      if (generated.edibleParts && generated.edibleParts.length > 0) setEdibleParts(generated.edibleParts);
 
+      // 2. Characteristics
       if (generated.characteristics) {
-        setLeaves(generated.characteristics.leaves || leaves);
-        setStemAndRoots(generated.characteristics.stemAndRoots || stemAndRoots);
-        setFlowers(generated.characteristics.flowers || flowers);
-        setFruitsAndSeeds(generated.characteristics.fruitsAndSeeds || fruitsAndSeeds);
-        setDistinctiveFeatures(generated.characteristics.distinctiveFeatures || distinctiveFeatures);
+        if (generated.characteristics.leaves) setLeaves(generated.characteristics.leaves);
+        if (generated.characteristics.stemAndRoots) setStemAndRoots(generated.characteristics.stemAndRoots);
+        if (generated.characteristics.flowers) setFlowers(generated.characteristics.flowers);
+        if (generated.characteristics.fruitsAndSeeds) setFruitsAndSeeds(generated.characteristics.fruitsAndSeeds);
+        if (generated.characteristics.distinctiveFeatures) setDistinctiveFeatures(generated.characteristics.distinctiveFeatures);
       }
 
+      // 3. Preparation, Survival Cooking & Antinutrients
       if (generated.preparation) {
-        setPrepMethod(generated.preparation.prepMethod || prepMethod);
-        if (generated.preparation.cookingMethods) setCookingMethods(generated.preparation.cookingMethods);
+        if (generated.preparation.prepMethod) setPrepMethod(generated.preparation.prepMethod);
+        if (generated.preparation.cookingMethods && generated.preparation.cookingMethods.length > 0) {
+          setCookingMethods(generated.preparation.cookingMethods);
+        }
         if (generated.preparation.antinutrients) setAntinutrients(generated.preparation.antinutrients);
         if (generated.preparation.antinutrientRemoval) setAntinutrientRemoval(generated.preparation.antinutrientRemoval);
         if (generated.preparation.toxicity) setToxicity(generated.preparation.toxicity);
         if (generated.preparation.toxicityNotes) setToxicityNotes(generated.preparation.toxicityNotes);
         if (generated.preparation.flavorProfile) setFlavorProfile(generated.preparation.flavorProfile);
+        if (generated.preparation.storageMethod) setStorageMethod(generated.preparation.storageMethod);
       }
 
+      // 4. Nutrition
       if (generated.nutrition) {
-        setCalories(generated.nutrition.calories || calories);
-        setProtein(generated.nutrition.protein || protein);
-        setCarbohydrates(generated.nutrition.carbohydrates || carbohydrates);
-        setFat(generated.nutrition.fat || fat);
-        setFiber(generated.nutrition.fiber || fiber);
+        if (generated.nutrition.calories !== undefined) setCalories(generated.nutrition.calories);
+        if (generated.nutrition.protein !== undefined) setProtein(generated.nutrition.protein);
+        if (generated.nutrition.carbohydrates !== undefined) setCarbohydrates(generated.nutrition.carbohydrates);
+        if (generated.nutrition.fat !== undefined) setFat(generated.nutrition.fat);
+        if (generated.nutrition.fiber !== undefined) setFiber(generated.nutrition.fiber);
         if (generated.nutrition.micronutrients) {
-          setCalciumMg(generated.nutrition.micronutrients.calciumMg || 0);
-          setIronMg(generated.nutrition.micronutrients.ironMg || 0);
-          setVitaminCMg(generated.nutrition.micronutrients.vitaminCMg || 0);
-          setPotassiumMg(generated.nutrition.micronutrients.potassiumMg || 0);
+          setCalciumMg(generated.nutrition.micronutrients.calciumMg ?? 0);
+          setIronMg(generated.nutrition.micronutrients.ironMg ?? 0);
+          setVitaminCMg(generated.nutrition.micronutrients.vitaminCMg ?? 0);
+          setPotassiumMg(generated.nutrition.micronutrients.potassiumMg ?? 0);
         }
       }
 
+      // 5. Distribution
       if (generated.distribution) {
-        if (generated.distribution.habitat) setHabitats(generated.distribution.habitat);
+        if (generated.distribution.habitat && generated.distribution.habitat.length > 0) setHabitats(generated.distribution.habitat);
         if (generated.distribution.elevation) setElevation(generated.distribution.elevation);
         if (generated.distribution.elevationDesc) setElevationDesc(generated.distribution.elevationDesc);
-        if (generated.distribution.regions) setRegions(generated.distribution.regions);
-        if (generated.distribution.season) setSeasons(generated.distribution.season);
+        if (generated.distribution.regions && generated.distribution.regions.length > 0) setRegions(generated.distribution.regions);
+        if (generated.distribution.season && generated.distribution.season.length > 0) setSeasons(generated.distribution.season);
         if (generated.distribution.abundance) setAbundance(generated.distribution.abundance);
       }
     } catch (err) {
@@ -588,36 +611,65 @@ export const PlantFormModal: React.FC<Props> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-7 overflow-y-auto space-y-7 text-stone-200">
-          {/* Quick Preset Floating Bar */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-stone-900 border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div className="text-xs text-stone-200">
-                <strong className="text-emerald-300">智慧填寫小幫手：</strong>
-                輸入植物名稱後，可一鍵透過內建百科或 AI 生成完整特徵、營養與分佈！
+          {/* Quick Preset Floating Bar / Smart Autofill Helper */}
+          {showHelperBanner ? (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-stone-900 border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md relative">
+              <div className="flex items-center gap-2 pr-6 sm:pr-0">
+                <Sparkles className="w-5 h-5 text-emerald-400 shrink-0" />
+                <div className="text-xs text-stone-200">
+                  <strong className="text-emerald-300">智慧填寫小幫手：</strong>
+                  輸入植物名稱後，可一鍵透過內建百科或 AI 生成完整特徵、營養與分佈！
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <select
+                  onChange={(e) => {
+                    const target = INITIAL_PLANTS.find((p) => p.name === e.target.value);
+                    if (target) applyPreset(target);
+                  }}
+                  defaultValue=""
+                  className="w-full sm:w-auto bg-stone-950 border border-emerald-600/70 text-emerald-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="" disabled>
+                    ⚡ 快速套用 18 種經典植物範本...
+                  </option>
+                  {INITIAL_PLANTS.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name} ({p.family.split(' ')[0]} - {p.nutrition.calories}kcal, 蛋白{p.nutrition.protein}g)
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowHelperBanner(false);
+                    localStorage.setItem('wildplants_hide_helper_banner', 'true');
+                  }}
+                  className="p-1.5 text-stone-400 hover:text-stone-200 hover:bg-stone-800 rounded-lg transition shrink-0"
+                  title="關閉小幫手提示（維持畫面簡潔）"
+                  aria-label="關閉小幫手提示"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-              <select
-                onChange={(e) => {
-                  const target = INITIAL_PLANTS.find((p) => p.name === e.target.value);
-                  if (target) applyPreset(target);
+          ) : (
+            <div className="flex justify-end -mt-3 -mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHelperBanner(true);
+                  localStorage.removeItem('wildplants_hide_helper_banner');
                 }}
-                defaultValue=""
-                className="w-full sm:w-auto bg-stone-950 border border-emerald-600/70 text-emerald-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
+                className="text-xs text-stone-400 hover:text-emerald-400 flex items-center gap-1.5 px-3 py-1 rounded-xl hover:bg-stone-800/80 transition border border-stone-800"
               >
-                <option value="" disabled>
-                  ⚡ 快速套用 18 種經典植物範本...
-                </option>
-                {INITIAL_PLANTS.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name} ({p.family.split(' ')[0]} - {p.nutrition.calories}kcal, 蛋白{p.nutrition.protein}g)
-                  </option>
-                ))}
-              </select>
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                <span>展開智慧填寫小幫手範本</span>
+              </button>
             </div>
-          </div>
+          )}
 
           {/* AI Error Alert if any */}
           {aiError && (
@@ -633,6 +685,75 @@ export const PlantFormModal: React.FC<Props> = ({
                 className="text-stone-400 hover:text-white p-1"
               >
                 <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Autofill Source Feedback Banner */}
+          {autofillStatus && (
+            <div
+              className={`p-3.5 rounded-2xl border flex items-start justify-between gap-3 text-xs shadow-md transition-all ${
+                autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                  ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-100'
+                  : autofillStatus.source === 'preset_library'
+                  ? 'bg-blue-950/70 border-blue-500/80 text-blue-100'
+                  : 'bg-amber-950/70 border-amber-600/80 text-amber-100'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <div
+                  className={`p-1.5 rounded-xl shrink-0 mt-0.5 ${
+                    autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                      ? 'bg-emerald-800/80 text-emerald-200'
+                      : autofillStatus.source === 'preset_library'
+                      ? 'bg-blue-800/80 text-blue-200'
+                      : 'bg-amber-800/80 text-amber-200'
+                  }`}
+                >
+                  {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server' ? (
+                    <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
+                  ) : autofillStatus.source === 'preset_library' ? (
+                    <BookOpen className="w-4 h-4 text-blue-300" />
+                  ) : (
+                    <Database className="w-4 h-4 text-amber-300" />
+                  )}
+                </div>
+
+                <div className="space-y-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-sm tracking-wide text-white">
+                      {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                        ? '✨ 成功由 Gemini AI 真正生成'
+                        : autofillStatus.source === 'preset_library'
+                        ? '📖 套用內建經典植物範本'
+                        : '📚 由內建野外植物學百科庫填入'}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                        autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                          ? 'bg-emerald-900/90 border-emerald-400/60 text-emerald-200'
+                          : autofillStatus.source === 'preset_library'
+                          ? 'bg-blue-900/90 border-blue-400/60 text-blue-200'
+                          : 'bg-amber-900/90 border-amber-400/60 text-amber-200'
+                      }`}
+                    >
+                      {autofillStatus.sourceLabel}
+                    </span>
+                  </div>
+                  <p className="text-stone-300 text-xs leading-relaxed">
+                    {autofillStatus.sourceDescription}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setAutofillStatus(null)}
+                className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition shrink-0"
+                title="關閉來源提示"
+                aria-label="關閉來源提示"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -674,6 +795,52 @@ export const PlantFormModal: React.FC<Props> = ({
                     <span>{isAiLoading ? 'AI 查詢中...' : '✨ AI 自動填寫'}</span>
                   </button>
                 </div>
+
+                {/* Real-time source badge below plant name */}
+                {autofillStatus && (
+                  <div className="mt-1.5 flex items-center justify-between text-[11px] px-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full ${
+                          autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                            ? 'bg-emerald-400 animate-pulse'
+                            : autofillStatus.source === 'preset_library'
+                            ? 'bg-blue-400'
+                            : 'bg-amber-400'
+                        }`}
+                      />
+                      <span className="text-stone-300">
+                        填入來源：
+                        <strong
+                          className={`font-semibold ${
+                            autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                              ? 'text-emerald-300'
+                              : autofillStatus.source === 'preset_library'
+                              ? 'text-blue-300'
+                              : 'text-amber-300'
+                          }`}
+                        >
+                          {autofillStatus.sourceLabel}
+                        </strong>
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/80 font-medium'
+                          : autofillStatus.source === 'preset_library'
+                          ? 'bg-blue-950 text-blue-300 border border-blue-800/80'
+                          : 'bg-amber-950 text-amber-300 border border-amber-800/80'
+                      }`}
+                    >
+                      {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
+                        ? '🤖 真正靠 AI 生成'
+                        : autofillStatus.source === 'preset_library'
+                        ? '📖 內建範本庫'
+                        : '📚 離線知識庫'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Preset Suggestions Dropdown with Dismiss button */}
                 {showPresetsDropdown && presetSuggestions.length > 0 && (
