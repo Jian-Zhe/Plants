@@ -23,15 +23,8 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import {
   Sprout,
   Plus,
-  Flame,
-  Zap,
-  Layers,
-  Heart,
   RotateCcw,
   Sparkles,
-  Smartphone,
-  Globe,
-  Compass,
 } from 'lucide-react';
 
 export default function App() {
@@ -50,8 +43,6 @@ export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnlyFavorites, setIsOnlyFavorites] = useState(false);
 
-  // Active View Tab
-  const [activeTab, setActiveTab] = useState<'all' | 'family' | 'protein' | 'calories'>('all');
 
   // Filter State
   const [filters, setFilters] = useState<PlantFilterOptions>({
@@ -264,50 +255,19 @@ export default function App() {
       });
   }, [plants, filters, isOnlyFavorites]);
 
-  // Overall Statistics for Insights Banner
-  const stats = useMemo(() => {
-    const total = plants.length;
-    const uniqueFamiliesCount = new Set(plants.map((p) => p.family.split(' ')[0])).size;
-    const avgProtein = total > 0 ? (plants.reduce((acc, p) => acc + p.nutrition.protein, 0) / total).toFixed(1) : 0;
-    const topProteinPlant = plants.length > 0 ? [...plants].sort((a, b) => b.nutrition.protein - a.nutrition.protein)[0] : null;
-    const lowestCaloriePlant = plants.length > 0 ? [...plants].sort((a, b) => a.nutrition.calories - b.nutrition.calories)[0] : null;
-    const favoritesCount = plants.filter((p) => p.isFavorite).length;
-
-    return {
-      total,
-      uniqueFamiliesCount,
-      avgProtein,
-      topProteinPlant,
-      lowestCaloriePlant,
-      favoritesCount,
-    };
-  }, [plants]);
-
-  // Grouped by Family for Family Tab
-  const plantsGroupedByFamily = useMemo(() => {
-    const map: Record<string, PlantItem[]> = {};
-    filteredPlants.forEach((p) => {
-      const fam = p.family.split(' ')[0] || p.family;
-      if (!map[fam]) map[fam] = [];
-      map[fam].push(p);
-    });
-    return map;
-  }, [filteredPlants]);
+  // Favorites count for Navbar badge
+  const favoritesCount = useMemo(() => plants.filter((p) => p.isFavorite).length, [plants]);
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white pb-24 sm:pb-12">
       {/* Top Navbar */}
       <Navbar
-        onAddClick={() => {
-          setEditingPlant(null);
-          setIsFormOpen(true);
-        }}
         onOpenGithubGuide={() => setIsGithubGuideOpen(true)}
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenAiSettings={() => setIsAiSettingsOpen(true)}
         isOnlyFavorites={isOnlyFavorites}
         onToggleOnlyFavorites={() => setIsOnlyFavorites(!isOnlyFavorites)}
-        favoritesCount={stats.favoritesCount}
+        favoritesCount={favoritesCount}
         user={currentUser}
         isSyncing={isSyncing}
         onLogin={handleLogin}
@@ -315,73 +275,7 @@ export default function App() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex-1 w-full space-y-5">
-        {/* View Mode Switcher Tabs */}
-        <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => {
-                setActiveTab('all');
-                setFilters((prev) => ({ ...prev, sortBy: 'updatedAt' }));
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'all'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Sprout className="w-4 h-4" />
-              <span>圖鑑總覽</span>
-            </button>
 
-            <button
-              onClick={() => {
-                setActiveTab('family');
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'family'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-950/40'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>按科別分類</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('protein');
-                setFilters((prev) => ({ ...prev, sortBy: 'protein_desc' }));
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'protein'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Zap className="w-4 h-4" />
-              <span>高蛋白排行</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('calories');
-                setFilters((prev) => ({ ...prev, sortBy: 'calories_asc' }));
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'calories'
-                  ? 'bg-orange-600 text-white shadow-md shadow-orange-950/40'
-                  : 'text-stone-400 hover:text-white hover:bg-stone-800'
-              }`}
-            >
-              <Flame className="w-4 h-4" />
-              <span>低卡輕食榜</span>
-            </button>
-          </div>
-
-          <span className="text-xs text-stone-500 hidden sm:inline">
-            顯示 {filteredPlants.length} 項結果
-          </span>
-        </div>
 
         {/* Multi-dimensional Filter Bar */}
         <FilterBar
@@ -479,39 +373,6 @@ export default function App() {
               </button>
             </div>
           </div>
-        ) : activeTab === 'family' ? (
-          /* Grouped by Family View */
-          <div className="space-y-8">
-            {Object.entries(plantsGroupedByFamily).map(([famName, groupPlants]) => (
-              <div key={famName} className="space-y-3">
-                <div className="flex items-center gap-2.5 pb-2 border-b border-stone-800">
-                  <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-                  <h3 className="text-lg font-bold text-white tracking-wide">
-                    {famName}
-                  </h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-stone-800 text-stone-400">
-                    {groupPlants.length} 種
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {groupPlants.map((plant) => (
-                    <PlantCard
-                      key={plant.id}
-                      plant={plant}
-                      onSelect={setSelectedPlant}
-                      onEdit={(p) => {
-                        setEditingPlant(p);
-                        setIsFormOpen(true);
-                      }}
-                      onDelete={handleDeletePlant}
-                      onToggleFavorite={handleToggleFavorite}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
         ) : (
           /* Standard Grid View */
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -532,17 +393,17 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Button for Mobile Thumb Reach */}
-      <div className="fixed bottom-6 right-6 z-30 sm:hidden">
+      {/* Floating Action Button for Adding Plant (Desktop & Mobile) */}
+      <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => {
             setEditingPlant(null);
             setIsFormOpen(true);
           }}
-          className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-950/80 active:scale-95 transition border border-emerald-400/40"
+          className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-2xl shadow-emerald-950/90 active:scale-95 hover:scale-105 transition-all border border-emerald-400/50 group cursor-pointer"
           title="新增植物紀錄"
         >
-          <Plus className="w-7 h-7" />
+          <Plus className="w-7 h-7 group-hover:rotate-90 transition-transform duration-200" />
         </button>
       </div>
 

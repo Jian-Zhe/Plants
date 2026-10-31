@@ -16,7 +16,6 @@ import { User } from 'firebase/auth';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface Props {
-  onAddClick: () => void;
   onOpenGithubGuide: () => void;
   onOpenBackup: () => void;
   onOpenAiSettings: () => void;
@@ -30,7 +29,6 @@ interface Props {
 }
 
 export const Navbar: React.FC<Props> = ({
-  onAddClick,
   onOpenGithubGuide,
   onOpenBackup,
   onOpenAiSettings,
@@ -124,38 +122,45 @@ export const Navbar: React.FC<Props> = ({
 
               {/* User Dropdown */}
               {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl p-2.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="px-2 py-1.5 border-b border-stone-800 pb-2 mb-1.5">
-                    <p className="font-semibold text-white truncate">{user.displayName || '植物紀錄家'}</p>
-                    <p className="text-[11px] text-stone-400 truncate">{user.email}</p>
-                    <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <span>Firebase 雲端即時同步中</span>
+                <>
+                  {/* Backdrop for mobile */}
+                  <div
+                    className="fixed inset-0 z-40 sm:hidden bg-black/40 backdrop-blur-[1px]"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="fixed top-16 right-3 sm:absolute sm:top-full sm:right-0 sm:mt-2 w-[min(calc(100vw-1.5rem),16rem)] rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl p-2.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-2 py-1.5 border-b border-stone-800 pb-2 mb-1.5">
+                      <p className="font-semibold text-white truncate">{user.displayName || '植物紀錄家'}</p>
+                      <p className="text-[11px] text-stone-400 truncate">{user.email}</p>
+                      <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span>Firebase 雲端即時同步中</span>
+                      </div>
                     </div>
+
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onOpenBackup();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 hover:bg-stone-800 rounded-lg flex items-center gap-2 text-stone-300 transition cursor-pointer"
+                    >
+                      <Database className="w-3.5 h-3.5 text-blue-400" />
+                      <span>備份與還原 (JSON)</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        onLogout();
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 hover:bg-rose-950/50 rounded-lg flex items-center gap-2 text-rose-300 transition mt-1 cursor-pointer"
+                    >
+                      <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                      <span>登出 Google 帳號</span>
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onOpenBackup();
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-stone-800 rounded-lg flex items-center gap-2 text-stone-300 transition"
-                  >
-                    <Database className="w-3.5 h-3.5 text-blue-400" />
-                    <span>備份與還原 (JSON)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onLogout();
-                    }}
-                    className="w-full text-left px-2.5 py-1.5 hover:bg-rose-950/50 rounded-lg flex items-center gap-2 text-rose-300 transition mt-1"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
-                    <span>登出 Google 帳號</span>
-                  </button>
-                </div>
+                </>
               )}
             </div>
           ) : (
@@ -222,17 +227,6 @@ export const Navbar: React.FC<Props> = ({
           {/* PWA Install Button */}
           <PWAInstallButton />
 
-          {/* Primary Add Plant Button */}
-          <button
-            onClick={onAddClick}
-            className="whitespace-nowrap shrink-0 flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-950/40 active:scale-95 transition cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-            <span className="whitespace-nowrap hidden xs:inline sm:hidden">新增</span>
-            <span className="whitespace-nowrap hidden sm:inline">新增植物</span>
-            <span className="whitespace-nowrap xs:hidden">新增</span>
-          </button>
-
           {/* Mobile More Options Dropdown Menu (< sm screens) */}
           <div className="relative sm:hidden" ref={menuRef}>
             <button
@@ -244,22 +238,28 @@ export const Navbar: React.FC<Props> = ({
             </button>
 
             {showMobileMenu && (
-              <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl py-1.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
-                {!user ? (
-                  <button
-                    onClick={() => {
-                      setShowMobileMenu(false);
-                      onLogin();
-                    }}
-                    className="w-full text-left px-3.5 py-3 hover:bg-emerald-950/70 bg-emerald-950/30 flex items-center gap-2.5 text-emerald-300 transition border-b border-stone-800"
-                  >
-                    <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <div>
-                      <div className="font-semibold text-white">Google 雲端登入</div>
-                      <div className="text-[10px] text-emerald-400/90 font-normal">開啟手機跨裝置同步</div>
-                    </div>
-                  </button>
-                ) : (
+              <>
+                {/* Backdrop for mobile */}
+                <div
+                  className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]"
+                  onClick={() => setShowMobileMenu(false)}
+                />
+                <div className="fixed top-16 right-3 sm:absolute sm:top-full sm:right-0 sm:mt-2 w-[min(calc(100vw-1.5rem),14rem)] rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl py-1.5 z-50 text-xs text-stone-200 animate-in fade-in slide-in-from-top-2 duration-150">
+                  {!user ? (
+                    <button
+                      onClick={() => {
+                        setShowMobileMenu(false);
+                        onLogin();
+                      }}
+                      className="w-full text-left px-3.5 py-3 hover:bg-emerald-950/70 bg-emerald-950/30 flex items-center gap-2.5 text-emerald-300 transition border-b border-stone-800"
+                    >
+                      <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white">Google 雲端登入</div>
+                        <div className="text-[10px] text-emerald-400/90 font-normal">開啟手機跨裝置同步</div>
+                      </div>
+                    </button>
+                  ) : (
                   <div className="px-3.5 py-2 border-b border-stone-800 text-[11px]">
                     <div className="text-emerald-300 font-medium truncate">{user.displayName || user.email}</div>
                     <div className="text-stone-400 text-[10px]">☁️ Firebase 雲端同步中</div>
@@ -312,7 +312,8 @@ export const Navbar: React.FC<Props> = ({
                   </button>
                 )}
               </div>
-            )}
+            </>
+          )}
           </div>
         </div>
       </div>
