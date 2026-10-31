@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B4332" />
+      <stop offset="50%" stop-color="#2D6A4F" />
+      <stop offset="100%" stop-color="#081C15" />
+    </linearGradient>
+    <linearGradient id="leafGrad1" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#40916C" />
+      <stop offset="60%" stop-color="#74C69D" />
+      <stop offset="100%" stop-color="#D8F3DC" />
+    </linearGradient>
+    <linearGradient id="leafGrad2" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#2D6A4F" />
+      <stop offset="80%" stop-color="#52B788" />
+      <stop offset="100%" stop-color="#95D5B2" />
+    </linearGradient>
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE066" />
+      <stop offset="100%" stop-color="#F4A261" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Botanical circle grid accent -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#52B788" stroke-width="2" stroke-opacity="0.2" stroke-dasharray="8 8" />
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#D8F3DC" stroke-width="1.5" stroke-opacity="0.15" />
+
+  <!-- Energy / Sun symbol -->
+  <circle cx="360" cy="150" r="28" fill="url(#sunGrad)" filter="url(#shadow)" />
+  <path d="M 360 110 L 360 98 M 360 202 L 360 190 M 320 150 L 308 150 M 412 150 L 400 150 M 332 122 L 324 114 M 396 186 L 388 178 M 332 178 L 324 186 M 396 114 L 388 122" 
+        stroke="#FFE066" stroke-width="3.5" stroke-linecap="round" opacity="0.8" />
+
+  <!-- Main Botanical Stem and Leaves -->
+  <g filter="url(#shadow)">
+    <!-- Curving stem -->
+    <path d="M 170 410 C 190 350 220 280 256 180" fill="none" stroke="#B7E4C7" stroke-width="14" stroke-linecap="round" />
+    
+    <!-- Primary Large Leaf (Right) -->
+    <path d="M 256 180 C 340 160 390 230 380 300 C 370 360 300 370 230 310 C 236 260 248 210 256 180 Z" 
+          fill="url(#leafGrad1)" />
+    <!-- Leaf vein -->
+    <path d="M 256 180 C 290 230 320 280 345 315" fill="none" stroke="#1B4332" stroke-width="3.5" stroke-linecap="round" opacity="0.4" />
+    <path d="M 285 225 Q 330 230 355 250" fill="none" stroke="#1B4332" stroke-width="2.5" stroke-linecap="round" opacity="0.3" />
+    <path d="M 305 260 Q 340 280 358 300" fill="none" stroke="#1B4332" stroke-width="2.5" stroke-linecap="round" opacity="0.3" />
+
+    <!-- Secondary Leaf (Left) -->
+    <path d="M 220 270 C 140 250 120 310 135 360 C 150 400 210 400 215 330 C 217 305 218 285 220 270 Z" 
+          fill="url(#leafGrad2)" />
+    <path d="M 220 270 C 185 310 160 345 145 365" fill="none" stroke="#081C15" stroke-width="3" stroke-linecap="round" opacity="0.35" />
+
+    <!-- Top Sprout Leaf -->
+    <path d="M 256 180 C 250 120 220 90 200 80 C 220 120 235 155 256 180 Z" fill="#D8F3DC" />
+    <path d="M 256 180 C 275 125 310 100 325 95 C 295 130 275 160 256 180 Z" fill="#74C69D" />
+  </g>
+
+  <!-- Small nutrition dots / particles -->
+  <circle cx="150" cy="210" r="5" fill="#FFE066" opacity="0.8" />
+  <circle cx="180" cy="180" r="3.5" fill="#B7E4C7" opacity="0.7" />
+  <circle cx="390" cy="380" r="4.5" fill="#FFE066" opacity="0.6" />
+</svg>

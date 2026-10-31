@@ -1,0 +1,6 @@
+{
+  "name": "植感野誌 - 植物特徵與營養分佈百科 (BotanicaLog)",
+  "description": "支援手機安裝與 GitHub Pages 部署的植物野外圖鑑與食用營養筆記。具備科別、熱量、蛋白質與生態分佈多維檢索，以及百科範本與智能快速填寫功能。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
