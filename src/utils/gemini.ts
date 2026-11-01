@@ -98,6 +98,7 @@ function mapRawToPlantItem(parsed: Record<string, any>, plantName: string): Part
     aliases,
     family,
     category: (parsed.category as PlantCategory) || fallback.category,
+    isEdible: typeof parsed.isEdible === 'boolean' ? parsed.isEdible : true,
     edibleParts,
     characteristics: {
       leaves: parsed.characteristics?.leaves || fallback.characteristics.leaves,

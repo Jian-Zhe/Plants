@@ -75,6 +75,8 @@ export interface PlantItem {
 
   images: PlantImage[]; // 照片集
   
+  isEdible?: boolean; // 食用性質：是否可食用 (true: 可食用, false: 無法食用/有毒/觀察記錄)
+
   userNotes?: string; // 個人採集筆記 / 心得
   foragingLocations?: string; // 發現地點記錄
   isFavorite?: boolean; // 收藏標記
@@ -89,6 +91,7 @@ export interface PlantFilterOptions {
   searchQuery: string;
   family: string; // 'all' or specific family
   category: string; // 'all' or specific category
+  edibility?: 'all' | 'edible' | 'inedible'; // 食用性質過濾
   
   // 營養篩選
   calorieRange: [number, number]; // [min, max]
@@ -104,3 +107,4 @@ export interface PlantFilterOptions {
   // 排序
   sortBy: 'name' | 'calories_desc' | 'calories_asc' | 'protein_desc' | 'fiber_desc' | 'updatedAt';
 }
+

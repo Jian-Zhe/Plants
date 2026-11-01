@@ -199,7 +199,7 @@ export function subscribeToCloudPlants(
       onUpdate(cloudPlants);
     },
     (err) => {
-      handleFirestoreError(err, OperationType.LIST, collectionPath);
+      console.warn('Firestore plants subscription error/offline:', err);
     }
   );
 }

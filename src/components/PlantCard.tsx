@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlantItem, ToxicityLevel } from '../types/plant';
-import { Star, Flame, Zap, Mountain, AlertCircle, ShieldCheck, Heart, Edit3, Trash2, Sprout } from 'lucide-react';
+import { Star, Flame, Zap, Mountain, AlertCircle, ShieldCheck, Heart, Edit3, Trash2, Sprout, Ban } from 'lucide-react';
 
 interface Props {
   plant: PlantItem;
@@ -81,7 +81,14 @@ export const PlantCard: React.FC<Props> = ({
         {/* Top Badges */}
         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {renderToxicityBadge(plant.preparation.toxicity)}
+            {plant.isEdible === false ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950/90 text-rose-300 border border-rose-600 shadow-sm backdrop-blur-md">
+                <Ban className="w-3 h-3 text-rose-400" />
+                無法食用
+              </span>
+            ) : (
+              renderToxicityBadge(plant.preparation.toxicity)
+            )}
             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-900/80 text-stone-300 border border-stone-700/60 backdrop-blur-md">
               {plant.family.split(' ')[0]}
             </span>
@@ -131,38 +138,56 @@ export const PlantCard: React.FC<Props> = ({
 
       {/* Body Info */}
       <div className="p-3.5 flex-1 flex flex-col justify-between space-y-3">
-        {/* Nutrition Highlights Grid */}
-        <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 bg-stone-950/60 rounded-xl border border-stone-800/80 text-center">
-          <div>
-            <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
-              <Flame className="w-2.5 h-2.5 text-orange-400" />
-              熱量
+        {/* Nutrition Highlights Grid or Inedible Warning Box */}
+        {plant.isEdible === false ? (
+          <div className="py-2 px-2.5 bg-rose-950/40 rounded-xl border border-rose-800/60 text-center">
+            <div className="text-[11px] font-bold text-rose-300 flex items-center justify-center gap-1">
+              <Ban className="w-3.5 h-3.5 text-rose-400" />
+              <span>無法食用 / 觀察研究紀錄</span>
             </div>
-            <div className="text-xs font-bold text-stone-100 mt-0.5">
-              {plant.nutrition.calories} <span className="text-[9px] font-normal text-stone-500">kcal</span>
-            </div>
+            {plant.preparation.toxicityNotes ? (
+              <div className="text-[10px] text-stone-400 truncate mt-0.5">
+                {plant.preparation.toxicityNotes}
+              </div>
+            ) : (
+              <div className="text-[10px] text-stone-500 mt-0.5">
+                此植物具毒性或無食用價值
+              </div>
+            )}
           </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 bg-stone-950/60 rounded-xl border border-stone-800/80 text-center">
+            <div>
+              <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
+                <Flame className="w-2.5 h-2.5 text-orange-400" />
+                熱量
+              </div>
+              <div className="text-xs font-bold text-stone-100 mt-0.5">
+                {plant.nutrition.calories} <span className="text-[9px] font-normal text-stone-500">kcal</span>
+              </div>
+            </div>
 
-          <div className="border-x border-stone-800/80">
-            <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
-              <Zap className="w-2.5 h-2.5 text-blue-400" />
-              蛋白質
+            <div className="border-x border-stone-800/80">
+              <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
+                <Zap className="w-2.5 h-2.5 text-blue-400" />
+                蛋白質
+              </div>
+              <div className="text-xs font-bold text-stone-100 mt-0.5">
+                {plant.nutrition.protein} <span className="text-[9px] font-normal text-stone-500">g</span>
+              </div>
             </div>
-            <div className="text-xs font-bold text-stone-100 mt-0.5">
-              {plant.nutrition.protein} <span className="text-[9px] font-normal text-stone-500">g</span>
-            </div>
-          </div>
 
-          <div>
-            <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
-              <span className="text-emerald-400 text-[10px]">🌾</span>
-              纖維
-            </div>
-            <div className="text-xs font-bold text-stone-100 mt-0.5">
-              {plant.nutrition.fiber} <span className="text-[9px] font-normal text-stone-500">g</span>
+            <div>
+              <div className="text-[10px] text-stone-400 flex items-center justify-center gap-0.5">
+                <span className="text-emerald-400 text-[10px]">🌾</span>
+                纖維
+              </div>
+              <div className="text-xs font-bold text-stone-100 mt-0.5">
+                {plant.nutrition.fiber} <span className="text-[9px] font-normal text-stone-500">g</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Characteristics Snippet */}
         <p className="text-xs text-stone-400 line-clamp-2 leading-relaxed">

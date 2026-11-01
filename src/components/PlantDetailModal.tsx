@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Share2,
+  Ban,
 } from 'lucide-react';
 
 interface Props {
@@ -110,7 +111,18 @@ export const PlantDetailModal: React.FC<Props> = ({
         {/* Sticky Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 border-b border-stone-800 bg-stone-900/95 sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700/60">
+            {plant.isEdible === false ? (
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-950 text-rose-300 border border-rose-600 flex items-center gap-1 shadow-sm">
+                <Ban className="w-3.5 h-3.5 text-rose-400" />
+                無法食用
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950 text-emerald-300 border border-emerald-700/60 flex items-center gap-1 shadow-sm">
+                <Utensils className="w-3.5 h-3.5 text-emerald-400" />
+                可食用
+              </span>
+            )}
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-stone-800 text-stone-300 border border-stone-700">
               {plant.family}
             </span>
             <span className="text-xs text-stone-400 hidden sm:inline">
@@ -275,26 +287,44 @@ export const PlantDetailModal: React.FC<Props> = ({
                 )}
               </div>
 
-              {/* Edible Parts */}
-              <div>
-                <span className="text-xs font-semibold text-stone-400 block mb-1">可食用部位：</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {plant.edibleParts.map((part) => (
-                    <span
-                      key={part}
-                      className="px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-700/50 text-emerald-300 text-xs font-medium"
-                    >
-                      🌱 {part}
-                    </span>
-                  ))}
+              {/* Edible Parts vs Inedible Alert */}
+              {plant.isEdible === false ? (
+                <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-600/70 text-rose-200 text-xs flex items-start gap-2.5 shadow-sm">
+                  <Ban className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-bold text-rose-300">無法食用植物警示：</strong>
+                    <p className="mt-0.5 text-stone-200 leading-relaxed">
+                      此植物為非食用或具毒性植物，僅供野外外觀形態辨識與防誤採觀察，請勿採食！
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <span className="text-xs font-semibold text-stone-400 block mb-1">
+                    可食用部位：
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {plant.edibleParts && plant.edibleParts.length > 0 ? (
+                      plant.edibleParts.map((part) => (
+                        <span
+                          key={part}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium border bg-emerald-950/70 border-emerald-700/50 text-emerald-300"
+                        >
+                          🌱 {part}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-stone-500">無特別記載</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Toxicity Alert */}
               {renderToxicityNotice(plant.preparation.toxicity, plant.preparation.toxicityNotes)}
 
-              {/* Taste / Flavor Profile */}
-              {plant.preparation.flavorProfile && (
+              {/* Taste / Flavor Profile (Only for edible plants) */}
+              {plant.isEdible !== false && plant.preparation.flavorProfile && (
                 <div className="p-3 bg-stone-800/40 rounded-xl border border-stone-800 text-xs text-stone-300">
                   <strong className="text-stone-200">風味口感：</strong> {plant.preparation.flavorProfile}
                 </div>
@@ -302,15 +332,16 @@ export const PlantDetailModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* 1. 營養指標儀表板 (Nutrition Dashboard per 100g) */}
-          <div className="space-y-3 p-5 rounded-2xl bg-stone-950 border border-stone-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Flame className="w-5 h-5 text-orange-400" />
-                營養成分數值 (每 100g 鮮重)
-              </h2>
-              <span className="text-xs text-stone-400">衛福部/植物營養學參考值</span>
-            </div>
+          {/* 1. 營養指標儀表板 (Only for edible plants) */}
+          {plant.isEdible !== false && (
+            <div className="space-y-3 p-5 rounded-2xl bg-stone-950 border border-stone-800">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Flame className="w-5 h-5 text-orange-400" />
+                  營養成分數值 (每 100g 鮮重)
+                </h2>
+                <span className="text-xs text-stone-400">衛福部/植物營養學參考值</span>
+              </div>
 
             {/* Core Macro Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -415,49 +446,51 @@ export const PlantDetailModal: React.FC<Props> = ({
               </div>
             )}
           </div>
+        )}
 
-          {/* 2. 植物形態與鑑別特徵 (Botanical Characteristics) */}
-          <div className="space-y-4">
-            <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-stone-800 pb-2">
-              <BookOpen className="w-5 h-5 text-emerald-400" />
-              植物外觀與辨識特徵
-            </h2>
+        {/* 2. 植物形態與鑑別特徵 (Botanical Characteristics) */}
+        <div className="space-y-4">
+          <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-stone-800 pb-2">
+            <BookOpen className="w-5 h-5 text-emerald-400" />
+            植物外觀與辨識特徵
+          </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
-              <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
-                <span className="font-semibold text-emerald-400 text-xs">🍃 葉部形態：</span>
-                <p className="text-stone-300 leading-relaxed">{plant.characteristics.leaves}</p>
-              </div>
-
-              <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
-                <span className="font-semibold text-emerald-400 text-xs">🎋 莖與根特徵：</span>
-                <p className="text-stone-300 leading-relaxed">{plant.characteristics.stemAndRoots}</p>
-              </div>
-
-              <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
-                <span className="font-semibold text-emerald-400 text-xs">🌸 花部特徵：</span>
-                <p className="text-stone-300 leading-relaxed">{plant.characteristics.flowers}</p>
-              </div>
-
-              <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
-                <span className="font-semibold text-emerald-400 text-xs">🍒 果實與種子：</span>
-                <p className="text-stone-300 leading-relaxed">{plant.characteristics.fruitsAndSeeds || '暫無記載'}</p>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+            <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
+              <span className="font-semibold text-emerald-400 text-xs">🍃 葉部形態：</span>
+              <p className="text-stone-300 leading-relaxed">{plant.characteristics.leaves}</p>
             </div>
 
-            {/* Distinctive Features / Anti-poisoning ID Tips */}
-            <div className="p-4 rounded-xl bg-stone-800/60 border border-stone-700/60 space-y-1.5">
-              <div className="font-semibold text-stone-100 text-sm flex items-center gap-1.5">
-                <span className="text-emerald-400">🔍</span>
-                關鍵辨識要點與防混淆：
-              </div>
-              <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
-                {plant.characteristics.distinctiveFeatures}
-              </p>
+            <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
+              <span className="font-semibold text-emerald-400 text-xs">🎋 莖與根特徵：</span>
+              <p className="text-stone-300 leading-relaxed">{plant.characteristics.stemAndRoots}</p>
+            </div>
+
+            <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
+              <span className="font-semibold text-emerald-400 text-xs">🌸 花部特徵：</span>
+              <p className="text-stone-300 leading-relaxed">{plant.characteristics.flowers}</p>
+            </div>
+
+            <div className="p-3.5 bg-stone-950/60 rounded-xl border border-stone-800 space-y-1">
+              <span className="font-semibold text-emerald-400 text-xs">🍒 果實與種子：</span>
+              <p className="text-stone-300 leading-relaxed">{plant.characteristics.fruitsAndSeeds || '暫無記載'}</p>
             </div>
           </div>
 
-          {/* 3. 處理方式與料理手法 (Preparation & Survival Bushcraft) */}
+          {/* Distinctive Features / Anti-poisoning ID Tips */}
+          <div className="p-4 rounded-xl bg-stone-800/60 border border-stone-700/60 space-y-1.5">
+            <div className="font-semibold text-stone-100 text-sm flex items-center gap-1.5">
+              <span className="text-emerald-400">🔍</span>
+              關鍵辨識要點與防混淆：
+            </div>
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              {plant.characteristics.distinctiveFeatures}
+            </p>
+          </div>
+        </div>
+
+        {/* 3. 處理方式與料理手法 (Preparation & Survival Bushcraft - only for edible plants) */}
+        {plant.isEdible !== false && (
           <div className="space-y-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-stone-800 pb-2">
               <Flame className="w-5 h-5 text-amber-400" />
@@ -525,6 +558,7 @@ export const PlantDetailModal: React.FC<Props> = ({
               </div>
             )}
           </div>
+        )}
 
           {/* 4. 生態分佈與棲地 (Ecology & Distribution) */}
           <div className="space-y-4">

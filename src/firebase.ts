@@ -7,6 +7,8 @@ import {
   getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
   User,
 } from 'firebase/auth';
 import {
@@ -34,7 +36,16 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
+// Enforce browserLocalPersistence so auth state survives mobile background tab sleep & reload
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Set persistence error:', err);
+});
+
 export const googleProvider = new GoogleAuthProvider();
+// Force account selection prompt on re-login after logout
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 export enum OperationType {
   CREATE = 'create',
@@ -122,8 +133,12 @@ export async function loginWithGoogle(forceRedirect = false): Promise<User | nul
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (err: unknown) {
+    // If auth state was already updated in the background during popup flow
+    if (auth.currentUser) {
+      return auth.currentUser;
+    }
     const errorCode = (err as { code?: string })?.code;
-    // If popup was blocked by mobile browser (e.g. Safari / Chrome), fallback to redirect
+    // If popup was blocked or closed on mobile, fallback to redirect or check current user
     if (errorCode === 'auth/popup-blocked' || errorCode === 'auth/cancelled-popup-request') {
       console.warn('Popup blocked, attempting redirect sign-in...');
       await signInWithRedirect(auth, googleProvider);
@@ -138,7 +153,10 @@ export async function loginWithGoogle(forceRedirect = false): Promise<User | nul
 export async function handleAuthRedirect(): Promise<User | null> {
   try {
     const result = await getRedirectResult(auth);
-    return result?.user || null;
+    if (result?.user) {
+      return result.user;
+    }
+    return auth.currentUser || null;
   } catch (err) {
     console.error('Redirect sign-in error:', err);
     throw err;

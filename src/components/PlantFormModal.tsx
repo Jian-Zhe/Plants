@@ -24,6 +24,7 @@ import {
   Zap,
   BookOpen,
   Utensils,
+  Ban,
   Mountain,
   ChevronDown,
   ChevronUp,
@@ -53,6 +54,7 @@ export const PlantFormModal: React.FC<Props> = ({
   const [aliasInput, setAliasInput] = useState('');
   const [family, setFamily] = useState('');
   const [category, setCategory] = useState<PlantCategory>('wild');
+  const [isEdible, setIsEdible] = useState<boolean>(true);
   const [edibleParts, setEdibleParts] = useState<string[]>([]);
 
   // Characteristics
@@ -65,6 +67,8 @@ export const PlantFormModal: React.FC<Props> = ({
   // Preparation
   const [prepMethod, setPrepMethod] = useState('');
   const [cookingMethods, setCookingMethods] = useState<string[]>([]);
+  const [customCookingMethodInput, setCustomCookingMethodInput] = useState('');
+  const [showCustomCookingInput, setShowCustomCookingInput] = useState(false);
   const [antinutrients, setAntinutrients] = useState('');
   const [antinutrientRemoval, setAntinutrientRemoval] = useState('');
   const [toxicity, setToxicity] = useState<ToxicityLevel>('none');
@@ -134,18 +138,12 @@ export const PlantFormModal: React.FC<Props> = ({
 
   const commonEdibleParts = ['嫩莖葉', '成熟果實', '花苞與花', '塊根塊莖', '一般根', '幼嫩芽梢', '種子', '全草'];
   const commonCookingMethods = [
-    '葉蛋白萃取 (LPC)',
-    '乳酸野外自然發酵',
-    '草木灰水鹼浸脫毒',
-    '流水長時浸洗脫苦',
-    '反覆換水沸煮脫澀',
-    '石板野火烙炙',
-    '竹筒填塞炭火煨熟',
-    '坑式地爐燜烤',
-    '日曬乾燥磨粉存糧',
-    '柴火低溫煙燻防腐',
-    '泥裹灰燼煨熟',
-    '低溫慢熬提煉高湯',
+    '乳酸發酵',
+    '葉蛋白萃取',
+    '反覆煮沸',
+    '流水浸洗',
+    '低溫熬煮',
+    '悶烤',
   ];
 
   const commonAntinutrients = [
@@ -182,6 +180,7 @@ export const PlantFormModal: React.FC<Props> = ({
       setAliases(editingPlant.aliases || []);
       setFamily(editingPlant.family);
       setCategory(editingPlant.category || 'wild');
+      setIsEdible(editingPlant.isEdible !== false);
       setEdibleParts(editingPlant.edibleParts || []);
 
       setLeaves(editingPlant.characteristics.leaves);
@@ -192,6 +191,8 @@ export const PlantFormModal: React.FC<Props> = ({
 
       setPrepMethod(editingPlant.preparation.prepMethod);
       setCookingMethods(editingPlant.preparation.cookingMethods || []);
+      setCustomCookingMethodInput('');
+      setShowCustomCookingInput(false);
       setAntinutrients(editingPlant.preparation.antinutrients || '');
       setAntinutrientRemoval(editingPlant.preparation.antinutrientRemoval || '');
       setToxicity(editingPlant.preparation.toxicity);
@@ -231,6 +232,7 @@ export const PlantFormModal: React.FC<Props> = ({
     setAliasInput('');
     setFamily('');
     setCategory('wild');
+    setIsEdible(true);
     setEdibleParts([]);
 
     setLeaves('');
@@ -241,6 +243,8 @@ export const PlantFormModal: React.FC<Props> = ({
 
     setPrepMethod('');
     setCookingMethods([]);
+    setCustomCookingMethodInput('');
+    setShowCustomCookingInput(false);
     setAntinutrients('');
     setAntinutrientRemoval('');
     setToxicity('none');
@@ -305,6 +309,7 @@ export const PlantFormModal: React.FC<Props> = ({
     setAliases(preset.aliases);
     setFamily(preset.family);
     setCategory(preset.category);
+    setIsEdible(preset.isEdible !== false);
     setEdibleParts(preset.edibleParts);
 
     setLeaves(preset.characteristics.leaves);
@@ -315,6 +320,8 @@ export const PlantFormModal: React.FC<Props> = ({
 
     setPrepMethod(preset.preparation.prepMethod);
     setCookingMethods(preset.preparation.cookingMethods);
+    setCustomCookingMethodInput('');
+    setShowCustomCookingInput(false);
     setAntinutrients(preset.preparation.antinutrients || '');
     setAntinutrientRemoval(preset.preparation.antinutrientRemoval || '');
     setToxicity(preset.preparation.toxicity);
@@ -351,6 +358,18 @@ export const PlantFormModal: React.FC<Props> = ({
     });
 
     setShowPresetsDropdown(false);
+  };
+
+  // Add custom survival cooking method
+  const handleAddCustomCookingMethod = () => {
+    const trimmed = customCookingMethodInput.trim();
+    if (trimmed) {
+      if (!cookingMethods.includes(trimmed)) {
+        setCookingMethods((prev) => [...prev, trimmed]);
+      }
+      setCustomCookingMethodInput('');
+      setShowCustomCookingInput(false);
+    }
   };
 
   // Trigger Gemini AI Autofill
@@ -526,8 +545,9 @@ export const PlantFormModal: React.FC<Props> = ({
       scientificName: scientificName.trim(),
       aliases,
       family: family.trim() || '未分類',
-      category,
-      edibleParts,
+      category: isEdible ? category : 'wild',
+      isEdible,
+      edibleParts: isEdible ? edibleParts : [],
       characteristics: {
         leaves: leaves.trim(),
         stemAndRoots: stemAndRoots.trim(),
@@ -535,36 +555,57 @@ export const PlantFormModal: React.FC<Props> = ({
         fruitsAndSeeds: fruitsAndSeeds.trim(),
         distinctiveFeatures: distinctiveFeatures.trim(),
       },
-      preparation: {
-        prepMethod: prepMethod.trim(),
-        cookingMethods,
-        antinutrients: antinutrients.trim(),
-        antinutrientRemoval: antinutrientRemoval.trim(),
-        toxicity,
-        toxicityNotes: toxicityNotes.trim(),
-        flavorProfile: flavorProfile.trim(),
-        storageMethod: storageMethod.trim(),
-      },
-      nutrition: {
-        calories: numCalories,
-        protein: numProtein,
-        carbohydrates: numCarbs,
-        fat: numFat,
-        fiber: numFiber,
-        micronutrients: {
-          calciumMg: calciumMg !== '' ? Number(calciumMg) : undefined,
-          ironMg: ironMg !== '' ? Number(ironMg) : undefined,
-          vitaminCMg: vitaminCMg !== '' ? Number(vitaminCMg) : undefined,
-          potassiumMg: potassiumMg !== '' ? Number(potassiumMg) : undefined,
-        },
-        nutritionHighlights: [
-          numCalories > 0 ? (numCalories < 25 ? '低卡清爽' : numCalories > 80 ? '高熱量存糧' : '熱量適中') : '',
-          numProtein > 0 ? (numProtein >= 3 ? '高蛋白質野植' : '含植物性蛋白質') : '',
-          numFiber > 0 ? (numFiber >= 3 ? '高纖順暢' : '膳食纖維') : '',
-        ].filter(Boolean),
-      },
+      preparation: isEdible
+        ? {
+            prepMethod: prepMethod.trim(),
+            cookingMethods,
+            antinutrients: antinutrients.trim(),
+            antinutrientRemoval: antinutrientRemoval.trim(),
+            toxicity,
+            toxicityNotes: toxicityNotes.trim(),
+            flavorProfile: flavorProfile.trim(),
+            storageMethod: storageMethod.trim(),
+          }
+        : {
+            prepMethod: '非食用植物 / 具毒性或未明，嚴禁食用',
+            cookingMethods: [],
+            antinutrients: '',
+            antinutrientRemoval: '',
+            toxicity: 'warning',
+            toxicityNotes: '非食用植物 / 具毒性警示，請勿採食',
+            flavorProfile: '',
+            storageMethod: '',
+          },
+      nutrition: isEdible
+        ? {
+            calories: numCalories,
+            protein: numProtein,
+            carbohydrates: numCarbs,
+            fat: numFat,
+            fiber: numFiber,
+            micronutrients: {
+              calciumMg: calciumMg !== '' ? Number(calciumMg) : undefined,
+              ironMg: ironMg !== '' ? Number(ironMg) : undefined,
+              vitaminCMg: vitaminCMg !== '' ? Number(vitaminCMg) : undefined,
+              potassiumMg: potassiumMg !== '' ? Number(potassiumMg) : undefined,
+            },
+            nutritionHighlights: [
+              numCalories > 0 ? (numCalories < 25 ? '低卡清爽' : numCalories > 80 ? '高熱量存糧' : '熱量適中') : '',
+              numProtein > 0 ? (numProtein >= 3 ? '高蛋白質野植' : '含植物性蛋白質') : '',
+              numFiber > 0 ? (numFiber >= 3 ? '高纖順暢' : '膳食纖維') : '',
+            ].filter(Boolean),
+          }
+        : {
+            calories: 0,
+            protein: 0,
+            carbohydrates: 0,
+            fat: 0,
+            fiber: 0,
+            micronutrients: undefined,
+            nutritionHighlights: ['無法食用', '非食用植物'],
+          },
       distribution: {
-        habitat: habitats,
+        habitat: habitats.length > 0 ? habitats : ['野外荒地'],
         elevation,
         elevationDesc: elevationDesc.trim(),
         regions,
@@ -951,32 +992,107 @@ export const PlantFormModal: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Edible Parts Chips */}
-            <div>
-              <label className="block text-xs font-semibold text-stone-300 mb-1.5">
-                可食用部位 (點擊切換)
+            {/* 食用性質選擇器 (Edibility Selector) */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-stone-200 flex items-center justify-between">
+                <span>🌱 食用性質（可食 vs 無法食用）</span>
+                <span className="text-[11px] font-normal text-stone-400">
+                  {isEdible ? '🌿 此植物為可食用植物' : '🚫 此植物無法食用 / 具毒性或僅供觀測'}
+                </span>
               </label>
-              <div className="flex flex-wrap gap-2">
-                {commonEdibleParts.map((part) => {
-                  const isChecked = edibleParts.includes(part);
-                  return (
-                    <button
-                      key={part}
-                      type="button"
-                      onClick={() => toggleArrayItem(edibleParts, part, setEdibleParts)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
-                        isChecked
-                          ? 'bg-emerald-950 border-emerald-500 text-emerald-300 shadow-sm'
-                          : 'bg-stone-950 border-stone-800 text-stone-400 hover:text-stone-200'
-                      }`}
-                    >
-                      {isChecked ? '✓ ' : '+ '}
-                      {part}
-                    </button>
-                  );
-                })}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEdible(true)}
+                  className={`p-3 rounded-xl border flex items-center gap-2.5 transition cursor-pointer text-left ${
+                    isEdible
+                      ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200 ring-1 ring-emerald-500 shadow-sm'
+                      : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      isEdible ? 'bg-emerald-800 text-white' : 'bg-stone-800 text-stone-400'
+                    }`}
+                  >
+                    <Utensils className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs sm:text-sm">可食用植物</div>
+                    <div className="text-[10px] text-stone-400">可供野菜烹煮或求生加工食用</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEdible(false);
+                    if (toxicity === 'none') {
+                      setToxicity('warning');
+                    }
+                  }}
+                  className={`p-3 rounded-xl border flex items-center gap-2.5 transition cursor-pointer text-left ${
+                    !isEdible
+                      ? 'bg-rose-950/80 border-rose-500 text-rose-200 ring-1 ring-rose-500 shadow-sm'
+                      : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      !isEdible ? 'bg-rose-800 text-white' : 'bg-stone-800 text-stone-400'
+                    }`}
+                  >
+                    <Ban className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs sm:text-sm">無法食用 / 有毒</div>
+                    <div className="text-[10px] text-stone-400">不可食用、具毒性或純形態紀錄</div>
+                  </div>
+                </button>
               </div>
+
+              {!isEdible && (
+                <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-800/60 text-[11px] text-rose-300 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-semibold text-rose-200">已標記為無法食用植物：</strong>
+                    <p className="text-stone-300 mt-0.5 leading-relaxed">
+                      僅需填寫「照片」與「外觀形態辨識特徵」以利野外鑑別防誤採，後續所有食用部位、料理手法、脫毒處理與營養數據欄位已為您隱藏。
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Edible Parts Chips (Only shown when edible) */}
+            {isEdible && (
+              <div>
+                <label className="block text-xs font-semibold text-stone-300 mb-1.5">
+                  可食用部位 (點擊切換)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {commonEdibleParts.map((part) => {
+                    const isChecked = edibleParts.includes(part);
+                    return (
+                      <button
+                        key={part}
+                        type="button"
+                        onClick={() => toggleArrayItem(edibleParts, part, setEdibleParts)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
+                          isChecked
+                            ? 'bg-emerald-950 border-emerald-500 text-emerald-300 shadow-sm'
+                            : 'bg-stone-950 border-stone-800 text-stone-400 hover:text-stone-200'
+                        }`}
+                      >
+                        {isChecked ? '✓ ' : '+ '}
+                        {part}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 2: 照片上傳與相機拍照 (Photos & Camera) */}
@@ -1177,14 +1293,33 @@ export const PlantFormModal: React.FC<Props> = ({
                 className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500 text-xs leading-relaxed"
               />
             </div>
+
+            {/* Optional Location Notes for Inedible/Poisonous Plant */}
+            {!isEdible && (
+              <div className="pt-2 border-t border-stone-800/80">
+                <label className="block text-xs font-semibold text-stone-300 mb-1">
+                  發現地點或野外觀察筆記 (選填)
+                </label>
+                <input
+                  type="text"
+                  placeholder="發現地點、座標或野外生長環境備註 (選填)..."
+                  value={foragingLocations}
+                  onChange={(e) => setForagingLocations(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl bg-stone-950 border border-stone-700 text-white placeholder-stone-600 focus:outline-none focus:border-rose-500 text-xs"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Section 4: 處理方式與料理手法 (Preparation & Cooking) */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-stone-800 pb-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-900 text-emerald-300 flex items-center justify-center text-xs">4</span>
-              前置脫毒處理與料理手法
-            </h3>
+          {/* Sections 4, 5, 6, 7 are ONLY for edible plants (hidden completely when marked inedible) */}
+          {isEdible && (
+            <>
+              {/* Section 4: 處理方式與料理手法 (Preparation & Cooking) */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-stone-800 pb-2">
+                  <span className="w-5 h-5 rounded-full bg-emerald-900 text-emerald-300 flex items-center justify-center text-xs">4</span>
+                  前置脫毒處理與料理手法
+                </h3>
 
             {/* Toxicity Level Selector */}
             <div>
@@ -1311,10 +1446,21 @@ export const PlantFormModal: React.FC<Props> = ({
 
             {/* Cooking Methods Chips - Survival Bushcraft */}
             <div>
-              <label className="block text-xs font-semibold text-amber-300 mb-1.5 flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
-                野外求生加工與料理手法 (點擊快速選取)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  野外求生加工與料理手法 (可多選，點擊切換)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomCookingInput(!showCustomCookingInput)}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-medium"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>其他 (自訂輸入)</span>
+                </button>
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 {commonCookingMethods.map((m) => {
                   const isChecked = cookingMethods.includes(m);
@@ -1325,7 +1471,7 @@ export const PlantFormModal: React.FC<Props> = ({
                       onClick={() => toggleArrayItem(cookingMethods, m, setCookingMethods)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition cursor-pointer ${
                         isChecked
-                          ? 'bg-amber-950 border-amber-500 text-amber-200 shadow-sm'
+                          ? 'bg-amber-950 border-amber-500 text-amber-200 shadow-sm ring-1 ring-amber-500/50'
                           : 'bg-stone-950 border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700'
                       }`}
                     >
@@ -1334,7 +1480,79 @@ export const PlantFormModal: React.FC<Props> = ({
                     </button>
                   );
                 })}
+
+                {/* Render any custom methods that user entered and selected */}
+                {cookingMethods
+                  .filter((m) => !commonCookingMethods.includes(m))
+                  .map((customMethod) => (
+                    <span
+                      key={customMethod}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-900/60 border border-amber-500 text-amber-200 shadow-sm"
+                    >
+                      <span>✓ {customMethod}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCookingMethods((prev) => prev.filter((item) => item !== customMethod))
+                        }
+                        className="hover:text-white p-0.5 rounded cursor-pointer"
+                        title="移除自訂手法"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+
+                {/* Quick "+ 其他" chip in row if not already showing input */}
+                {!showCustomCookingInput && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomCookingInput(true)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-stone-700 text-stone-400 hover:text-amber-300 hover:border-amber-600/60 transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>其他...</span>
+                  </button>
+                )}
               </div>
+
+              {/* Custom Cooking Method Input Box */}
+              {showCustomCookingInput && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-stone-950 border border-amber-800/60 flex items-center gap-2 animate-in fade-in duration-150">
+                  <input
+                    type="text"
+                    placeholder="輸入自訂求生加工手法 (例如：石板烙炙、草木灰水浸泡、柴火煙燻)..."
+                    value={customCookingMethodInput}
+                    onChange={(e) => setCustomCookingMethodInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomCookingMethod();
+                      }
+                    }}
+                    autoFocus
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-700 text-white text-xs placeholder-stone-500 focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomCookingMethod}
+                    disabled={!customCookingMethodInput.trim()}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold cursor-pointer shrink-0 transition"
+                  >
+                    加入手法
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomCookingInput(false);
+                      setCustomCookingMethodInput('');
+                    }}
+                    className="p-1 text-stone-400 hover:text-white rounded-lg cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Flavor & Storage */}
@@ -1628,6 +1846,8 @@ export const PlantFormModal: React.FC<Props> = ({
               />
             </div>
           </div>
+        </>
+      )}
 
           {/* Sticky Submit Footer */}
           <div className="pt-4 border-t border-stone-800 flex items-center justify-between sticky bottom-0 bg-stone-900/95 py-3 -mb-2 backdrop-blur-md">

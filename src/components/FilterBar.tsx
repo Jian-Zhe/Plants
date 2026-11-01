@@ -108,6 +108,14 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
       });
     }
 
+    if (filters.edibility && filters.edibility !== 'all') {
+      list.push({
+        id: 'edibility',
+        label: filters.edibility === 'edible' ? '僅可食用植物' : '僅無法食用/有毒',
+        onClear: () => onChange({ ...filters, edibility: 'all' }),
+      });
+    }
+
     if (filters.sortBy !== 'updatedAt') {
       const sortLabels: Record<string, string> = {
         protein_desc: '蛋白質高到低',
@@ -140,6 +148,7 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
       elevation: 'all',
       season: 'all',
       sortBy: 'updatedAt',
+      edibility: 'all',
     });
   };
 
@@ -232,15 +241,39 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
         {/* All Plants */}
         <button
-          onClick={() => onChange({ ...filters, family: 'all' })}
+          onClick={() => onChange({ ...filters, family: 'all', edibility: 'all' })}
           className={`shrink-0 px-3 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
-            filters.family === 'all' && filters.minProtein === 0 && filters.calorieRange[1] === 150
+            (!filters.edibility || filters.edibility === 'all') && filters.family === 'all' && filters.minProtein === 0 && filters.calorieRange[1] === 150
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'bg-stone-900/90 text-stone-400 hover:text-stone-200 border border-stone-800'
           }`}
         >
           <span>全部植物</span>
           <span className="text-[10px] opacity-75 font-mono">({plants.length})</span>
+        </button>
+
+        {/* Quick Edible Filter */}
+        <button
+          onClick={() => onChange({ ...filters, edibility: filters.edibility === 'edible' ? 'all' : 'edible' })}
+          className={`shrink-0 px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 border ${
+            filters.edibility === 'edible'
+              ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+              : 'bg-stone-900/90 text-stone-300 border-stone-800 hover:border-emerald-500/50'
+          }`}
+        >
+          <span>🌱 僅可食用</span>
+        </button>
+
+        {/* Quick Inedible Filter */}
+        <button
+          onClick={() => onChange({ ...filters, edibility: filters.edibility === 'inedible' ? 'all' : 'inedible' })}
+          className={`shrink-0 px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 border ${
+            filters.edibility === 'inedible'
+              ? 'bg-rose-600 text-white border-rose-500 shadow-sm'
+              : 'bg-stone-900/90 text-stone-300 border-stone-800 hover:border-rose-500/50'
+          }`}
+        >
+          <span>🚫 無法食用</span>
         </button>
 
         {/* Quick High Protein Filter */}
@@ -420,7 +453,24 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-stone-800">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-stone-800">
+            {/* Edibility */}
+            <div>
+              <label className="block text-stone-400 font-medium mb-1.5 flex items-center gap-1">
+                <span className="text-emerald-400">🌱</span>
+                食用性質
+              </label>
+              <select
+                value={filters.edibility || 'all'}
+                onChange={(e) => onChange({ ...filters, edibility: e.target.value as PlantFilterOptions['edibility'] })}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-stone-950 border border-stone-700 text-stone-200 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="all">全部 (可食與不可食)</option>
+                <option value="edible">僅顯示可食用植物</option>
+                <option value="inedible">僅顯示無法食用物種</option>
+              </select>
+            </div>
+
             {/* Habitat */}
             <div>
               <label className="block text-stone-400 font-medium mb-1.5 flex items-center gap-1">
@@ -531,6 +581,35 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
                         {opt.icon} {opt.label}
                       </span>
                       {filters.sortBy === opt.value && <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 1.5: 食用性質 */}
+              <div>
+                <h4 className="text-stone-200 font-bold text-xs mb-2.5 flex items-center gap-1.5">
+                  <span className="text-emerald-400">🌱</span>
+                  <span>食用性質篩選</span>
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'all', label: '全部顯示' },
+                    { id: 'edible', label: '🌱 僅可食' },
+                    { id: 'inedible', label: '🚫 無法食用' },
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => onChange({ ...filters, edibility: item.id as any })}
+                      className={`p-2.5 rounded-xl border text-center transition cursor-pointer text-xs ${
+                        (filters.edibility || 'all') === item.id
+                          ? item.id === 'inedible'
+                            ? 'bg-rose-950/80 border-rose-500 text-rose-300 font-bold shadow-sm'
+                            : 'bg-emerald-950/80 border-emerald-500 text-emerald-300 font-bold shadow-sm'
+                          : 'bg-stone-950 border-stone-800 text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      {item.label}
                     </button>
                   ))}
                 </div>

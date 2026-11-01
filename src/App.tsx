@@ -56,19 +56,30 @@ export default function App() {
     elevation: 'all',
     season: 'all',
     sortBy: 'updatedAt',
+    edibility: 'all',
   });
 
   // Listen to Firebase Auth state & manage offline vs cloud sync
   useEffect(() => {
     // Check if returning from a mobile redirect sign-in flow
-    handleAuthRedirect().catch((err) => {
-      console.warn('Redirect check error:', err);
-    });
+    handleAuthRedirect()
+      .then((redirectUser) => {
+        if (redirectUser) {
+          setCurrentUser(redirectUser);
+          setIsLoginModalOpen(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Redirect check error:', err);
+      });
 
     let unsubscribeFirestore: (() => void) | null = null;
 
     const unsubscribeAuth = subscribeToAuth(async (user) => {
       setCurrentUser(user);
+      if (user) {
+        setIsLoginModalOpen(false);
+      }
 
       if (unsubscribeFirestore) {
         unsubscribeFirestore();
@@ -185,6 +196,13 @@ export default function App() {
           if (!matchName && !matchSci && !matchAlias && !matchFamily && !matchFeatures && !matchPrep && !matchCook) {
             return false;
           }
+        }
+
+        // Edibility filter
+        if (filters.edibility && filters.edibility !== 'all') {
+          const isPlantEdible = plant.isEdible !== false;
+          if (filters.edibility === 'edible' && !isPlantEdible) return false;
+          if (filters.edibility === 'inedible' && isPlantEdible) return false;
         }
 
         // Family filter
@@ -353,6 +371,7 @@ export default function App() {
                     elevation: 'all',
                     season: 'all',
                     sortBy: 'updatedAt',
+                    edibility: 'all',
                   })
                 }
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs text-stone-200 transition cursor-pointer"
