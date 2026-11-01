@@ -39,17 +39,24 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
       },
     });
 
-    const prompt = `請以「野外求生植物學家、野營覓食專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的求生食用與加工檔案。請以繁體中文 (Traditional Chinese) 提供。
+    const prompt = `請以「野外求生植物學家、野外毒物學專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的植物學鑑定與食用/毒性安全性檔案。請以繁體中文 (Traditional Chinese) 提供。
 
 【重要準則】
-1. 【完整學名與科別】：必須精準提供真實完整的拉丁學名 (含命名者縮寫，例如：Crassocephalum crepidioides (Benth.) S.Moore) 以及科別 (格式必須為：中文科名 (拉丁科名)，例如：菊科 (Asteraceae), 茄科 (Solanaceae), 豆科 (Fabaceae))。不可留空！
-2. 【野外求生風格料理】：料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤、日曬乾燥磨粉存糧、柴火低溫煙燻等），【嚴禁】出現家常炒菜（如「蒜炒」、「煮蛋花湯」）。
-3. 【抗營養物質分析】：必須詳加分析「抗營養物質 (Antinutrients)」（如：草酸、植酸、單寧/鞣酸、生物鹼、皂苷、氰苷、草酸鈣針晶、胰蛋白酶抑制劑）與其對應的求生消除與脫毒降解手法。
-4. 【物種專屬差異數據】：熱量、蛋白質、碳水化合物、纖維與微量元素必須具備植物專屬科學估計差異，不可千篇一律填入固定數值。
+1. 【食用性質判斷 isEdible】：首先精準判斷該植物是否可供人類安全食用！若為【不可食用、具毒性、或非食用植物】（例如：姑婆芋、曼陀羅、夾竹桃、咬人貓、馬纓丹、毛地黃、海檬果、毒芹、斷腸草、相思豆等），"isEdible" 必須設為 false！若是安全可食之野生蔬菜/野菜，"isEdible" 設為 true。
+2. 【若為不可食用植物 (isEdible: false)】：
+   - "edibleParts" 必須為空陣列 []
+   - "characteristics" 必須詳盡描述外觀形態與【關鍵鑑別要點與防混淆（嚴防誤採）】
+   - "preparation" 中：cookingMethods 必須為空陣列 []，toxicity 設為 'warning' 或 'toxic_raw'，toxicityNotes 必須清楚載明毒性部位、毒素成分與中毒危險性，prepMethod 註明不可食用
+   - "nutrition" 中：熱量、蛋白質、碳水、脂肪、纖維全為 0，nutritionHighlights 填入 ["無法食用", "非食用植物"]
+3. 【若為可食用植物 (isEdible: true)】：
+   - 料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤等），【嚴禁】出現家常炒菜（如「蒜炒」、「煮蛋花湯」）。
+   - 詳加分析抗營養物質 (如草酸、植酸、單寧、生物鹼、皂苷、草酸鈣針晶) 與去除手法。
+   - 估計物種專屬之熱量與營養數值。
 
 請嚴格遵照下列 JSON 格式回傳純 JSON 物件：
 {
   "name": "${cleanName}",
+  "isEdible": true,
   "scientificName": "完整拉丁學名 (含命名者縮寫)",
   "aliases": ["常見俗名1", "別名2"],
   "family": "中文科名 (拉丁科名)",
@@ -57,20 +64,20 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
   "edibleParts": ["嫩莖葉", "一般根"],
   "characteristics": {
     "leaves": "葉部形態特徵 (葉形、葉緣、葉脈、質地)",
-    "stemAndRoots": "莖柱與根系（包含一般根或塊根）形態",
+    "stemAndRoots": "莖柱與根系形態",
     "flowers": "花部特徵 (花期、花型、花色)",
     "fruitsAndSeeds": "果實與種子形態及傳播",
     "distinctiveFeatures": "關鍵辨識要點與防混淆（避免誤採劇毒相近種）"
   },
   "preparation": {
-    "prepMethod": "求生前置清洗與脫毒處理步驟",
-    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀", "草木灰水鹼浸脫毒", "石板野火烙炙"],
-    "toxicity": "caution",
-    "toxicityNotes": "毒性與安全警語 (生食風險、未熟風險等)",
-    "antinutrients": "該植物主要抗營養物質 (如草酸、單寧、生物鹼等)",
-    "antinutrientRemoval": "對應之求生消除與脫毒手法",
-    "flavorProfile": "野外口感與風味描述",
-    "storageMethod": "野外長效保存方式 (日曬磨粉、煙燻、發酵)"
+    "prepMethod": "求生前置清洗與脫毒處理步驟（不可食則註記不可食用）",
+    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀"],
+    "toxicity": "none",
+    "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中學毒理與風險)",
+    "antinutrients": "主要抗營養物質或毒素成分",
+    "antinutrientRemoval": "對應之求生消除與脫毒手法（不可食則註記無法藉由烹煮脫毒）",
+    "flavorProfile": "野外口感描述（不可食則註記不可食用）",
+    "storageMethod": "野外保存方式"
   },
   "nutrition": {
     "calories": 25,
@@ -96,6 +103,7 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
   }
 }
 注意：
+- isEdible 必須為 boolean 值 (true 或 false)
 - category 只能是 'wild', 'cultivated', 'herb', 'medicinal', 'starch', 'fruit' 之一
 - toxicity 只能是 'none', 'caution', 'toxic_raw', 'warning' 之一
 - elevation 只能是 'low', 'mid', 'high', 'all' 之一
@@ -126,6 +134,32 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
           if (!parsed.scientificName || typeof parsed.scientificName !== 'string' || !parsed.scientificName.trim()) {
             parsed.scientificName = fallback.scientificName;
           }
+
+          // Strict edibility normalization
+          if (fallback.isEdible === false || parsed.isEdible === false) {
+            parsed.isEdible = false;
+          } else if (typeof parsed.isEdible !== 'boolean') {
+            parsed.isEdible = true;
+          }
+
+          if (parsed.isEdible === false) {
+            parsed.edibleParts = [];
+            if (parsed.preparation) {
+              parsed.preparation.cookingMethods = [];
+              parsed.preparation.toxicity = parsed.preparation.toxicity === 'none' ? 'warning' : parsed.preparation.toxicity;
+              parsed.preparation.prepMethod = parsed.preparation.prepMethod || '此植物非食用植物 / 具毒性或未明，嚴禁食用';
+            }
+            parsed.nutrition = {
+              calories: 0,
+              protein: 0,
+              carbohydrates: 0,
+              fat: 0,
+              fiber: 0,
+              micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+              nutritionHighlights: ['無法食用', '非食用植物'],
+            };
+          }
+
           res.json({ success: true, data: parsed, source: 'ai' });
           return;
         }

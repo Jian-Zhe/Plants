@@ -309,8 +309,9 @@ export const PlantFormModal: React.FC<Props> = ({
     setAliases(preset.aliases);
     setFamily(preset.family);
     setCategory(preset.category);
-    setIsEdible(preset.isEdible !== false);
-    setEdibleParts(preset.edibleParts);
+
+    const targetIsEdible = preset.isEdible !== false;
+    setIsEdible(targetIsEdible);
 
     setLeaves(preset.characteristics.leaves);
     setStemAndRoots(preset.characteristics.stemAndRoots);
@@ -318,26 +319,49 @@ export const PlantFormModal: React.FC<Props> = ({
     setFruitsAndSeeds(preset.characteristics.fruitsAndSeeds || '');
     setDistinctiveFeatures(preset.characteristics.distinctiveFeatures);
 
-    setPrepMethod(preset.preparation.prepMethod);
-    setCookingMethods(preset.preparation.cookingMethods);
-    setCustomCookingMethodInput('');
-    setShowCustomCookingInput(false);
-    setAntinutrients(preset.preparation.antinutrients || '');
-    setAntinutrientRemoval(preset.preparation.antinutrientRemoval || '');
-    setToxicity(preset.preparation.toxicity);
-    setToxicityNotes(preset.preparation.toxicityNotes);
-    setFlavorProfile(preset.preparation.flavorProfile || '');
-    setStorageMethod(preset.preparation.storageMethod || '');
+    if (targetIsEdible) {
+      setEdibleParts(preset.edibleParts || []);
+      setCookingMethods(preset.preparation.cookingMethods || []);
+      setCustomCookingMethodInput('');
+      setShowCustomCookingInput(false);
+      setAntinutrients(preset.preparation.antinutrients || '');
+      setAntinutrientRemoval(preset.preparation.antinutrientRemoval || '');
+      setToxicity(preset.preparation.toxicity);
+      setToxicityNotes(preset.preparation.toxicityNotes);
+      setFlavorProfile(preset.preparation.flavorProfile || '');
+      setStorageMethod(preset.preparation.storageMethod || '');
 
-    setCalories(preset.nutrition.calories);
-    setProtein(preset.nutrition.protein);
-    setCarbohydrates(preset.nutrition.carbohydrates);
-    setFat(preset.nutrition.fat);
-    setFiber(preset.nutrition.fiber);
-    setCalciumMg(preset.nutrition.micronutrients?.calciumMg || 0);
-    setIronMg(preset.nutrition.micronutrients?.ironMg || 0);
-    setVitaminCMg(preset.nutrition.micronutrients?.vitaminCMg || 0);
-    setPotassiumMg(preset.nutrition.micronutrients?.potassiumMg || 0);
+      setCalories(preset.nutrition.calories);
+      setProtein(preset.nutrition.protein);
+      setCarbohydrates(preset.nutrition.carbohydrates);
+      setFat(preset.nutrition.fat);
+      setFiber(preset.nutrition.fiber);
+      setCalciumMg(preset.nutrition.micronutrients?.calciumMg || 0);
+      setIronMg(preset.nutrition.micronutrients?.ironMg || 0);
+      setVitaminCMg(preset.nutrition.micronutrients?.vitaminCMg || 0);
+      setPotassiumMg(preset.nutrition.micronutrients?.potassiumMg || 0);
+    } else {
+      setEdibleParts([]);
+      setCookingMethods([]);
+      setCustomCookingMethodInput('');
+      setShowCustomCookingInput(false);
+      setAntinutrients('');
+      setAntinutrientRemoval('');
+      setToxicity(preset.preparation.toxicity || 'warning');
+      setToxicityNotes(preset.preparation.toxicityNotes || '非食用植物 / 具毒性或未明，嚴禁採食！');
+      setFlavorProfile('');
+      setStorageMethod('');
+
+      setCalories(0);
+      setProtein(0);
+      setCarbohydrates(0);
+      setFat(0);
+      setFiber(0);
+      setCalciumMg(0);
+      setIronMg(0);
+      setVitaminCMg(0);
+      setPotassiumMg(0);
+    }
 
     setHabitats(preset.distribution.habitat);
     setElevation(preset.distribution.elevation);
@@ -353,7 +377,7 @@ export const PlantFormModal: React.FC<Props> = ({
     setAutofillStatus({
       source: 'preset_library',
       sourceLabel: '內建經典植物範本',
-      sourceDescription: `已成功套用內建經典植物「${preset.name}」完整圖鑑與求生資料（包含學名、科別、特徵與分佈）。`,
+      sourceDescription: `已成功套用內建植物「${preset.name}」完整圖鑑與${targetIsEdible ? '求生資料' : '毒性辨識資料'}（包含學名、科別、特徵與分佈）。`,
       data: preset,
     });
 
@@ -375,7 +399,7 @@ export const PlantFormModal: React.FC<Props> = ({
   // Trigger Gemini AI Autofill
   const handleAiAutofill = async () => {
     if (!name.trim()) {
-      alert('請先輸入植物名稱（例如：昭和草、車前草、假酸漿）');
+      alert('請先輸入植物名稱（例如：昭和草、車前草、姑婆芋、咬人貓）');
       return;
     }
 
@@ -387,12 +411,35 @@ export const PlantFormModal: React.FC<Props> = ({
       setAutofillStatus(result);
       const generated = result.data;
 
+      // 0. Edibility evaluation
+      const targetIsEdible = generated.isEdible !== false;
+      setIsEdible(targetIsEdible);
+
       // 1. Basic Info & Taxonomy
       if (generated.scientificName) setScientificName(generated.scientificName);
       if (generated.family) setFamily(generated.family);
       if (generated.aliases && generated.aliases.length > 0) setAliases(generated.aliases);
       if (generated.category) setCategory(generated.category);
-      if (generated.edibleParts && generated.edibleParts.length > 0) setEdibleParts(generated.edibleParts);
+      
+      if (targetIsEdible) {
+        if (generated.edibleParts && generated.edibleParts.length > 0) {
+          setEdibleParts(generated.edibleParts);
+        }
+      } else {
+        setEdibleParts([]);
+        setCookingMethods([]);
+        setAntinutrients('');
+        setAntinutrientRemoval('');
+        setCalories(0);
+        setProtein(0);
+        setCarbohydrates(0);
+        setFat(0);
+        setFiber(0);
+        setCalciumMg(0);
+        setIronMg(0);
+        setVitaminCMg(0);
+        setPotassiumMg(0);
+      }
 
       // 2. Characteristics
       if (generated.characteristics) {
@@ -405,20 +452,32 @@ export const PlantFormModal: React.FC<Props> = ({
 
       // 3. Preparation, Survival Cooking & Antinutrients
       if (generated.preparation) {
-        if (generated.preparation.prepMethod) setPrepMethod(generated.preparation.prepMethod);
-        if (generated.preparation.cookingMethods && generated.preparation.cookingMethods.length > 0) {
-          setCookingMethods(generated.preparation.cookingMethods);
+        if (targetIsEdible) {
+          if (generated.preparation.prepMethod) setPrepMethod(generated.preparation.prepMethod);
+          if (generated.preparation.cookingMethods && generated.preparation.cookingMethods.length > 0) {
+            setCookingMethods(generated.preparation.cookingMethods);
+          }
+          if (generated.preparation.antinutrients) setAntinutrients(generated.preparation.antinutrients);
+          if (generated.preparation.antinutrientRemoval) setAntinutrientRemoval(generated.preparation.antinutrientRemoval);
+          if (generated.preparation.flavorProfile) setFlavorProfile(generated.preparation.flavorProfile);
+          if (generated.preparation.storageMethod) setStorageMethod(generated.preparation.storageMethod);
+        } else {
+          setPrepMethod('非食用植物 / 具毒性或未明，嚴禁食用');
+          setCookingMethods([]);
+          setAntinutrients('');
+          setAntinutrientRemoval('');
+          setFlavorProfile('');
+          setStorageMethod('');
         }
-        if (generated.preparation.antinutrients) setAntinutrients(generated.preparation.antinutrients);
-        if (generated.preparation.antinutrientRemoval) setAntinutrientRemoval(generated.preparation.antinutrientRemoval);
         if (generated.preparation.toxicity) setToxicity(generated.preparation.toxicity);
         if (generated.preparation.toxicityNotes) setToxicityNotes(generated.preparation.toxicityNotes);
-        if (generated.preparation.flavorProfile) setFlavorProfile(generated.preparation.flavorProfile);
-        if (generated.preparation.storageMethod) setStorageMethod(generated.preparation.storageMethod);
+      } else if (!targetIsEdible) {
+        setToxicity('warning');
+        setToxicityNotes('具毒性或非食用植物，嚴禁採食！');
       }
 
-      // 4. Nutrition
-      if (generated.nutrition) {
+      // 4. Nutrition (Only for edible plants)
+      if (targetIsEdible && generated.nutrition) {
         if (generated.nutrition.calories !== undefined) setCalories(generated.nutrition.calories);
         if (generated.nutrition.protein !== undefined) setProtein(generated.nutrition.protein);
         if (generated.nutrition.carbohydrates !== undefined) setCarbohydrates(generated.nutrition.carbohydrates);
@@ -432,7 +491,7 @@ export const PlantFormModal: React.FC<Props> = ({
         }
       }
 
-      // 5. Distribution
+      // 5. Distribution (Applies to all plants)
       if (generated.distribution) {
         if (generated.distribution.habitat && generated.distribution.habitat.length > 0) setHabitats(generated.distribution.habitat);
         if (generated.distribution.elevation) setElevation(generated.distribution.elevation);
@@ -584,10 +643,10 @@ export const PlantFormModal: React.FC<Props> = ({
             fat: numFat,
             fiber: numFiber,
             micronutrients: {
-              calciumMg: calciumMg !== '' ? Number(calciumMg) : undefined,
-              ironMg: ironMg !== '' ? Number(ironMg) : undefined,
-              vitaminCMg: vitaminCMg !== '' ? Number(vitaminCMg) : undefined,
-              potassiumMg: potassiumMg !== '' ? Number(potassiumMg) : undefined,
+              calciumMg: calciumMg !== '' ? Number(calciumMg) : 0,
+              ironMg: ironMg !== '' ? Number(ironMg) : 0,
+              vitaminCMg: vitaminCMg !== '' ? Number(vitaminCMg) : 0,
+              potassiumMg: potassiumMg !== '' ? Number(potassiumMg) : 0,
             },
             nutritionHighlights: [
               numCalories > 0 ? (numCalories < 25 ? '低卡清爽' : numCalories > 80 ? '高熱量存糧' : '熱量適中') : '',
@@ -601,7 +660,12 @@ export const PlantFormModal: React.FC<Props> = ({
             carbohydrates: 0,
             fat: 0,
             fiber: 0,
-            micronutrients: undefined,
+            micronutrients: {
+              calciumMg: 0,
+              ironMg: 0,
+              vitaminCMg: 0,
+              potassiumMg: 0,
+            },
             nutritionHighlights: ['無法食用', '非食用植物'],
           },
       distribution: {

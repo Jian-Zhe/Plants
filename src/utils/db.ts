@@ -110,6 +110,23 @@ export async function getAllPlants(): Promise<PlantItem[]> {
   }
 }
 
+// Deeply strip undefined values to prevent Firestore unsupported field value: undefined errors
+function stripUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(stripUndefined) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = stripUndefined(value);
+    }
+  }
+  return clean as T;
+}
+
 // Save or update single plant (to Local IndexedDB + optional Firebase Cloud)
 export async function savePlant(plant: PlantItem, userUid?: string | null): Promise<void> {
   // 1. Save to local IndexedDB
@@ -131,11 +148,11 @@ export async function savePlant(plant: PlantItem, userUid?: string | null): Prom
   if (userUid) {
     const docPath = `users/${userUid}/plants/${plant.id}`;
     try {
-      const payload = {
+      const payload = stripUndefined({
         ...plant,
         userId: userUid,
         updatedAt: plant.updatedAt || new Date().toISOString(),
-      };
+      });
       await setDoc(doc(db, 'users', userUid, 'plants', plant.id), payload);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, docPath);

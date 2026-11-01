@@ -140,7 +140,7 @@ export default function App() {
 
   // Save Plant Handler (Local + Cloud if signed in)
   const handleSavePlant = async (saved: PlantItem) => {
-    await savePlant(saved, currentUser?.uid);
+    // 1. Optimistic update so the plant appears instantly in the list
     setPlants((prev) => {
       const exists = prev.some((p) => p.id === saved.id);
       if (exists) {
@@ -148,6 +148,13 @@ export default function App() {
       }
       return [saved, ...prev];
     });
+
+    // 2. Persist to local storage and Cloud Firestore
+    try {
+      await savePlant(saved, currentUser?.uid);
+    } catch (err) {
+      console.error('Error saving plant to database:', err);
+    }
   };
 
   // Delete Plant Handler (Local + Cloud if signed in)
@@ -210,22 +217,25 @@ export default function App() {
           if (!plant.family.startsWith(filters.family)) return false;
         }
 
-        // Nutrition: Calories
-        if (
-          plant.nutrition.calories < filters.calorieRange[0] ||
-          plant.nutrition.calories > filters.calorieRange[1]
-        ) {
-          return false;
-        }
+        // Nutrition filters: only apply to edible plants so inedible plants (0 kcal/protein) are not filtered out
+        if (plant.isEdible !== false) {
+          // Nutrition: Calories
+          if (
+            plant.nutrition.calories < filters.calorieRange[0] ||
+            plant.nutrition.calories > filters.calorieRange[1]
+          ) {
+            return false;
+          }
 
-        // Nutrition: Protein
-        if (plant.nutrition.protein < filters.minProtein) {
-          return false;
-        }
+          // Nutrition: Protein
+          if (plant.nutrition.protein < filters.minProtein) {
+            return false;
+          }
 
-        // Nutrition: Fiber
-        if (plant.nutrition.fiber < filters.minFiber) {
-          return false;
+          // Nutrition: Fiber
+          if (plant.nutrition.fiber < filters.minFiber) {
+            return false;
+          }
         }
 
         // Habitat

@@ -66,6 +66,7 @@ export interface BotanicalEntry {
   family: string;
   aliases: string[];
   category: PlantCategory;
+  isEdible?: boolean;
   edibleParts: string[];
   characteristics: {
     leaves: string;
@@ -655,6 +656,221 @@ export const KNOWN_BOTANICAL_DATABASE: Record<string, BotanicalEntry> = {
       abundance: 'abundant',
     },
   },
+  姑婆芋: {
+    name: '姑婆芋',
+    scientificName: 'Alocasia odora (Lindl.) K.Koch',
+    family: '天南星科 (Araceae)',
+    aliases: ['野芋', '觀音蓮', '山芋', '海芋 (野生物種)'],
+    category: 'wild',
+    isEdible: false,
+    edibleParts: [],
+    characteristics: {
+      leaves: '葉片大型盾狀廣卵形，長度可達 1 公尺以上；葉面革質光滑濃綠，葉脈清晰於表面凸起；水滴滴在葉面不會形成滾動水珠（此為與食用芋最重要鑑別關鍵）。',
+      stemAndRoots: '莖肉質粗壯直立，地上莖圓柱形如樹幹狀；地下具肥大塊莖肉質根。',
+      flowers: '佛焰花序直立，佛焰苞長橢圓形淡黃綠色，肉穗花序較佛焰苞短。',
+      fruitsAndSeeds: '漿果球形，成熟時鮮紅橙紅色，極為引人注目。',
+      distinctiveFeatures: '【防誤採劇毒關鍵】：葉面水滴「不會聚集成滾動水珠」而是攤散；葉柄與葉片連接處「凹裂較深未癒合」。全株含劇毒草酸鈣針晶與植物毒蛋白，不可食用！',
+    },
+    preparation: {
+      prepMethod: '【劇毒植物，嚴禁採食】：全株汁液與組織均不可食用！若皮膚觸碰汁液需以大量清水沖洗。',
+      cookingMethods: [],
+      toxicity: 'warning',
+      toxicityNotes: '【劇毒警示】：全株各部位皆具強烈毒性，含大量銳利草酸鈣針晶與皂毒苷，誤食會導致口腔咽喉極度灼痛、劇烈腫脹窒息，嚴重者引發心臟衰竭及死亡。',
+      antinutrients: '不可溶草酸鈣針晶 (Raphides)、神經性植物毒蛋白、皂毒苷',
+      antinutrientRemoval: '無安全食用之脫毒手法，野外不可作為求生口糧，嚴禁採食！',
+      flavorProfile: '誤食接觸即引發如同千根鋼針刺入咽喉之劇烈灼燒劇痛，無可食風味。',
+      storageMethod: '僅供植物形態觀測標本製作，不可作為食品保存。',
+    },
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+      nutritionHighlights: ['無法食用', '非食用植物', '劇毒警示'],
+    },
+    distribution: {
+      habitat: ['淺山林緣', '潮濕陰暗山谷', '水濱溪流溝渠旁', '步道兩側遮陰處'],
+      elevation: 'low',
+      elevationDesc: '海平面至中海拔 1,200 公尺潮濕陰涼森林底層',
+      regions: ['全台灣平地至淺山潮濕陰暗環境極為普遍常見'],
+      season: ['全年'],
+      abundance: 'abundant',
+    },
+  },
+  曼陀羅: {
+    name: '曼陀羅',
+    scientificName: 'Datura metel L.',
+    family: '茄科 (Solanaceae)',
+    aliases: ['白花曼陀羅', '大花曼陀羅', '風茄兒', '山茄子', '洋金花'],
+    category: 'wild',
+    isEdible: false,
+    edibleParts: [],
+    characteristics: {
+      leaves: '單葉互生，廣卵形，頂端漸尖，基部不對稱偏斜，葉緣波狀淺裂或不規則齒裂。',
+      stemAndRoots: '粗壯草本至亞灌木，莖綠色或略帶紫褐色，多分枝。主根深生。',
+      flowers: '花單生葉腋，花冠喇叭狀漏斗形，長可達 15-20 公分，白色或淡黃色，夜間芳香。',
+      fruitsAndSeeds: '蒴果球形，表面密佈短而硬的粗刺，成熟時不規則開裂，種子扁平淡褐色。',
+      distinctiveFeatures: '碩大向下或斜上之喇叭形大花，葉片基部明顯歪斜不對稱。全株含劇毒莨菪生物鹼！',
+    },
+    preparation: {
+      prepMethod: '【劇毒植物，嚴禁採食】：全株組織（尤其是種子、花朵與葉片）具致命毒性，不可食用。',
+      cookingMethods: [],
+      toxicity: 'warning',
+      toxicityNotes: '【致命神經毒性】：全株含高濃度東莨菪鹼、阿托品等抗膽鹼生物鹼，誤食會導致瞳孔散大、極度口乾狂渴、幻覺譫妄、昏迷抽搐及呼吸衰竭死亡。',
+      antinutrients: '致命性托烷類生物鹼 (Tropane alkaloids: Scopolamine, Atropine, Hyoscyamine)',
+      antinutrientRemoval: '熱穩定性生物鹼無法藉由一般水煮烹調去毒，嚴禁任何食用嘗試！',
+      flavorProfile: '全株具強烈苦澀異味，具致命神經毒性。',
+      storageMethod: '不可保存為食品。',
+    },
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+      nutritionHighlights: ['無法食用', '非食用植物', '劇毒警示'],
+    },
+    distribution: {
+      habitat: ['平地荒野', '廢耕農田', '低海拔溪谷河床', '村落路旁向陽開闊地'],
+      elevation: 'low',
+      elevationDesc: '海平面至海拔 1,000 公尺開闊乾燥向陽坡地',
+      regions: ['全台灣低海拔開闊田野、河谷常見野生分佈'],
+      season: ['春季', '夏季', '秋季'],
+      abundance: 'common',
+    },
+  },
+  夾竹桃: {
+    name: '夾竹桃',
+    scientificName: 'Nerium oleander L.',
+    family: '夾竹桃科 (Apocynaceae)',
+    aliases: ['柳葉桃', '紅花夾竹桃', '假竹桃'],
+    category: 'wild',
+    isEdible: false,
+    edibleParts: [],
+    characteristics: {
+      leaves: '3-4 枚輪生，狹披針形革質，全緣，中脈顯著白綠色，側脈密集平行向外伸展。',
+      stemAndRoots: '常綠大灌木，樹皮灰褐色，枝條具白色有毒水溶性乳汁。',
+      flowers: '聚繖花序頂生，花冠深紅、桃紅或粉白色，漏斗狀 5 裂，芳香。',
+      fruitsAndSeeds: '蓇葖果長筒形，種子頂端簇生黃褐色絹質毛。',
+      distinctiveFeatures: '葉如竹葉、花如桃花，全株折斷流出白色劇毒乳汁，甚至燃燒枝條之煙霧皆具致命毒性！',
+    },
+    preparation: {
+      prepMethod: '【致命心臟毒性，嚴禁採食】：甚至不可用其枝條作為野外烤肉籤或竹筷！',
+      cookingMethods: [],
+      toxicity: 'warning',
+      toxicityNotes: '【心臟劇毒】：全株含強心苷 (Oleandrin 夾竹桃苷)，極微量即可引發心律不齊、心跳驟停及死亡。',
+      antinutrients: '強心甾苷類毒素 (Cardiac glycosides: Oleandrin, Neriin)',
+      antinutrientRemoval: '毒素極度穩定，加熱烘烤烹煮均無法破壞，嚴禁接觸食物！',
+      flavorProfile: '白色汁液極苦劇毒，入口即有生命危險。',
+      storageMethod: '嚴禁作為食材保存。',
+    },
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+      nutritionHighlights: ['無法食用', '非食用植物', '劇毒警示'],
+    },
+    distribution: {
+      habitat: ['公路綠帶', '海濱防風林', '平地公園荒野', '庭園綠化'],
+      elevation: 'low',
+      elevationDesc: '低海拔平原道路兩側及乾燥開闊地',
+      regions: ['全台灣平野、海濱、道路邊緣廣泛分佈'],
+      season: ['全年'],
+      abundance: 'common',
+    },
+  },
+  咬人貓: {
+    name: '咬人貓',
+    scientificName: 'Urtica thunbergiana Siebold & Zucc.',
+    family: '蕁麻科 (Urticaceae)',
+    aliases: ['蕁麻', '刺草', '咬人蕁麻'],
+    category: 'wild',
+    isEdible: false,
+    edibleParts: [],
+    characteristics: {
+      leaves: '單葉對生，廣卵形至心形，葉緣具粗大重鋸齒，葉片密生透明膨大焮毛 (Stinging hairs)。',
+      stemAndRoots: '多年生草本，莖稜角狀多汁，同樣佈滿透明剛硬之焮毛。',
+      flowers: '雌雄同株或異株，穗狀花序腋生，小花微細綠白色。',
+      fruitsAndSeeds: '瘦果細小扁卵形，被宿存花被包被。',
+      distinctiveFeatures: '葉片與莖上長滿含毒針管狀焮毛，人體觸碰針尖斷裂立即注射蟻酸與組織胺，引發火燒般劇痛刺癢！',
+    },
+    preparation: {
+      prepMethod: '【有毒刺毛植物】：未經特殊高溫完全去刺前不可食用，野外徒手採集極易刺傷劇痛。',
+      cookingMethods: [],
+      toxicity: 'warning',
+      toxicityNotes: '【焮毛毒性警示】：焮毛內含甲酸 (蟻酸)、組織胺、5-羥色胺等致炎神經毒素，觸碰灼痛紅腫可持續數天。',
+      antinutrients: '游離甲酸、組織胺、乙醯膽鹼、草酸',
+      antinutrientRemoval: '野外不可生食，非專業處理請勿隨意採掘。',
+      flavorProfile: '生品刺毛刺痛黏膜，未煮熟嚴禁入口。',
+      storageMethod: '不建議野外採集保存。',
+    },
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+      nutritionHighlights: ['無法食用', '非食用植物', '刺毛毒性'],
+    },
+    distribution: {
+      habitat: ['中高海拔林下', '溪谷陰濕處', '潮濕路旁向陽邊坡'],
+      elevation: 'mid',
+      elevationDesc: '海拔 500 至 3,000 公尺中高海拔潮濕山區',
+      regions: ['台灣中高海拔山區林道兩側與陰濕處極常見'],
+      season: ['春季', '夏季', '秋季'],
+      abundance: 'abundant',
+    },
+  },
+  馬纓丹: {
+    name: '馬纓丹',
+    scientificName: 'Lantana camara L.',
+    family: '馬鞭草科 (Verbenaceae)',
+    aliases: ['五色梅', '如意草', '七變花', '五彩花'],
+    category: 'wild',
+    isEdible: false,
+    edibleParts: [],
+    characteristics: {
+      leaves: '單葉對生，卵形或長卵形，葉緣具鈍鋸齒，揉碎具特殊刺鼻氣味。',
+      stemAndRoots: '常綠灌木，莖枝四稜形，常具有向下彎曲的倒鉤短刺。',
+      flowers: '頭狀花序繖房狀，花色多變（紅、橙、黃、粉白混合），常同一花序有多種顏色。',
+      fruitsAndSeeds: '核果球形，未成熟時綠色，成熟時紫黑色有光澤。',
+      distinctiveFeatures: '花色繽紛多變如繡球，枝條具四稜倒刺，未熟綠果與全株具肝膽與腸胃毒性。',
+    },
+    preparation: {
+      prepMethod: '【有毒植物，不可食用】：全株組織與未成熟果實均具毒性，不可作為野菜食用。',
+      cookingMethods: [],
+      toxicity: 'warning',
+      toxicityNotes: '【肝膽毒性警示】：含馬纓丹烯 (Lantadene A/B)，誤食會導致嚴重嘔吐、腹瀉、肝腫大、膽汁鬱積與光過敏性皮炎。',
+      antinutrients: '三萜類馬纓丹烯 (Lantadene)、生物鹼',
+      antinutrientRemoval: '非食用植物，熱加工無法消除肝毒性。',
+      flavorProfile: '具強烈刺鼻異味，不可食用。',
+      storageMethod: '不可作為食品保存。',
+    },
+    nutrition: {
+      calories: 0,
+      protein: 0,
+      carbohydrates: 0,
+      fat: 0,
+      fiber: 0,
+      micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+      nutritionHighlights: ['無法食用', '非食用植物', '肝毒性警示'],
+    },
+    distribution: {
+      habitat: ['平地荒野', '海濱向陽沙地', '低海拔向陽開闊灌叢', '道路邊緣'],
+      elevation: 'low',
+      elevationDesc: '海平面至海拔 800 公尺之開闊乾燥荒地',
+      regions: ['全台灣低海拔平原至丘陵普遍野生繁衍'],
+      season: ['全年'],
+      abundance: 'abundant',
+    },
+  },
 };
 
 export function inferBotanicalFallback(plantName: string): BotanicalEntry {
@@ -665,18 +881,103 @@ export function inferBotanicalFallback(plantName: string): BotanicalEntry {
     return KNOWN_BOTANICAL_DATABASE[clean];
   }
 
-  // 2. Check alias or partial inclusion
+  // 2. Check alias or partial inclusion in database
   for (const entry of Object.values(KNOWN_BOTANICAL_DATABASE)) {
     if (
+      clean === entry.name ||
       clean.includes(entry.name) ||
-      entry.name.includes(clean) ||
-      entry.aliases.some((a) => clean.includes(a) || a.includes(clean))
+      (entry.name.length >= 2 && clean.includes(entry.name)) ||
+      entry.aliases.some((a) => clean === a || clean.includes(a))
     ) {
       return {
         ...entry,
         name: clean,
       };
     }
+  }
+
+  // 3. Check if plant is a known toxic or inedible species
+  const isToxicInedible =
+    clean.includes('姑婆芋') ||
+    clean.includes('曼陀羅') ||
+    clean.includes('夾竹桃') ||
+    clean.includes('咬人貓') ||
+    clean.includes('咬人狗') ||
+    clean.includes('馬纓丹') ||
+    clean.includes('毛地黃') ||
+    clean.includes('毒芹') ||
+    clean.includes('水毒芹') ||
+    clean.includes('斷腸草') ||
+    clean.includes('海檬果') ||
+    clean.includes('蓖麻') ||
+    clean.includes('白屈菜') ||
+    clean.includes('相思豆') ||
+    clean.includes('天南星') ||
+    clean.includes('烏頭') ||
+    clean.includes('附子') ||
+    clean.includes('毒') ||
+    clean.includes('不可食');
+
+  if (isToxicInedible) {
+    let family = '野外常見植物科';
+    let scientificName = `${clean} sp.`;
+    if (clean.includes('芋')) {
+      family = '天南星科 (Araceae)';
+      scientificName = 'Alocasia sp.';
+    } else if (clean.includes('曼陀羅')) {
+      family = '茄科 (Solanaceae)';
+      scientificName = 'Datura sp.';
+    } else if (clean.includes('夾竹桃') || clean.includes('海檬果')) {
+      family = '夾竹桃科 (Apocynaceae)';
+      scientificName = 'Apocynaceae sp.';
+    } else if (clean.includes('咬人')) {
+      family = '蕁麻科 (Urticaceae)';
+      scientificName = 'Urtica sp.';
+    }
+
+    return {
+      name: clean,
+      scientificName,
+      family,
+      aliases: [`野外${clean}`, `野生${clean}`],
+      category: 'wild',
+      isEdible: false,
+      edibleParts: [],
+      characteristics: {
+        leaves: `單葉或複葉形態，具有「${clean}」典型之野生外觀特徵，請仔細鑑別辨識。`,
+        stemAndRoots: `草本或亞灌木莖柱，地下具實生根系。全株組織含有植物天然毒性成分。`,
+        flowers: `花期開展時花冠形態鮮明，為重要的植物分類辨識指標。`,
+        fruitsAndSeeds: `成熟種子或果實多數含有高濃度防禦性生物鹼或毒蛋白，切勿誤食。`,
+        distinctiveFeatures: `【關鍵鑑別與防誤採要點】：此植物經判定為「無法食用 / 具毒性植物」，嚴禁採食！請仔細觀察其葉形、葉脈及氣味以防止野外誤採相近可食野菜。`,
+      },
+      preparation: {
+        prepMethod: `【劇毒/非食用植物，嚴禁採食】：此植物不可食用，無安全脫毒手法，僅供野外觀察與形態辨識。`,
+        cookingMethods: [],
+        toxicity: 'warning',
+        toxicityNotes: `【有毒植物警示】：全株含防禦性毒性物質（如生物鹼、強心苷、草酸鈣針晶或致敏刺毛），食用具中毒風險！`,
+        antinutrients: `天然防禦性生物鹼、草酸鈣針晶、植物毒蛋白`,
+        antinutrientRemoval: `無法藉由一般水煮烹調破壞毒素，不可食用！`,
+        flavorProfile: `具毒性物質，不可食用。`,
+        storageMethod: `僅供野外觀察紀錄，不可作為食品保存。`,
+      },
+      nutrition: {
+        calories: 0,
+        protein: 0,
+        carbohydrates: 0,
+        fat: 0,
+        fiber: 0,
+        micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+        nutritionHighlights: ['無法食用', '非食用植物', '野外防誤採'],
+      },
+      distribution: {
+        habitat: ['平地荒野', '淺山林緣', '向陽開闊地'],
+        elevation: 'low',
+        elevationDesc: '平地至淺山開闊地帶',
+        regions: ['全台灣野外常見分佈'],
+        season: ['全年'],
+        abundance: 'common',
+      },
+    };
   }
 
   // 3. Intelligent botanical deduction based on plant taxonomy keywords
@@ -693,7 +994,7 @@ export function inferBotanicalFallback(plantName: string): BotanicalEntry {
   let protein = 2.8;
   let habitat = ['平地荒野', '淺山林緣向陽處'];
 
-  if (clean.includes('蕨') || clean.includes('貓')) {
+  if (clean.includes('蕨') || clean.includes('過貓')) {
     family = '蹄蓋蕨科 (Athyriaceae)';
     scientificName = 'Pteridophyta sp.';
     edibleParts = ['幼嫩芽梢 (卷旋嫩葉)', '嫩莖葉'];
