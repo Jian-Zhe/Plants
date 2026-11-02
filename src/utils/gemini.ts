@@ -247,11 +247,21 @@ async function callGeminiDirectFast(
   prompt: string,
   preferredModel?: string
 ): Promise<Record<string, any>> {
-  const baseModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
-  const candidateModels = preferredModel
-    ? [preferredModel, ...baseModels.filter((m) => m !== preferredModel)]
-    : baseModels;
-  let lastError: Error | null = null;
+  // Strict model strategy:
+  // If the user selected a specific model, prioritize it strictly!
+  // If user selected a budget/lite model (like gemini-3.1-flash-lite or gemini-flash-latest),
+  // NEVER fall back to high-tier gemini-3.8-flash, which triggers 429 quota exhaustion.
+  let candidateModels: string[];
+  if (preferredModel === 'gemini-3.8-flash') {
+    candidateModels = ['gemini-3.8-flash'];
+  } else if (preferredModel) {
+    const safeLiteFallbacks = ['gemini-3.1-flash-lite', 'gemini-flash-latest'].filter((m) => m !== preferredModel);
+    candidateModels = [preferredModel, ...safeLiteFallbacks];
+  } else {
+    candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  }
+
+  const errors: string[] = [];
 
   for (const model of candidateModels) {
     try {
@@ -272,7 +282,7 @@ async function callGeminiDirectFast(
             temperature: 0.2,
           },
         }),
-        signal: AbortSignal.timeout(12000), // 12s per model
+        signal: AbortSignal.timeout(35000), // 35s timeout to prevent premature aborts on complex plant taxonomy
       });
 
       if (!res.ok) {
@@ -288,12 +298,13 @@ async function callGeminiDirectFast(
         return parsed;
       }
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      console.warn(`Model ${model} direct call attempt failed:`, lastError.message);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      errors.push(`[${model}] ${errMsg}`);
+      console.warn(`Model ${model} direct call attempt failed:`, errMsg);
     }
   }
 
-  throw lastError || new Error('所有 Gemini 模型連線逾時或失敗');
+  throw new Error(`所選模型呼叫失敗：${errors.join('； ') || '無法取得回應'}`);
 }
 
 export type AutofillSource = 'gemini_direct' | 'gemini_server';

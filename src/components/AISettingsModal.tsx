@@ -12,7 +12,20 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [modelInput, setModelInput] = useState(() => getStoredModel());
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Sync inputs with stored state whenever modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setKeyInput(getStoredApiKey());
+      setModelInput(getStoredModel());
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleSelectModel = (id: string) => {
+    setModelInput(id);
+    setStoredModel(id); // Auto-save immediately to localStorage
+  };
 
   const handleSave = () => {
     setStoredApiKey(keyInput);
@@ -21,7 +34,7 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -73,7 +86,7 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 return (
                   <label
                     key={m.id}
-                    onClick={() => setModelInput(m.id)}
+                    onClick={() => handleSelectModel(m.id)}
                     className={`block p-3 rounded-xl border transition cursor-pointer text-left ${
                       isSelected
                         ? 'bg-emerald-950/80 border-emerald-500 text-emerald-100 ring-1 ring-emerald-500 shadow-md'
@@ -86,10 +99,15 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
                           type="radio"
                           name="gemini_model"
                           checked={isSelected}
-                          onChange={() => setModelInput(m.id)}
-                          className="text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5"
+                          onChange={() => handleSelectModel(m.id)}
+                          className="text-emerald-500 focus:ring-emerald-500 h-3.5 w-3.5 cursor-pointer"
                         />
                         <span className="font-bold text-xs sm:text-sm text-white">{m.name}</span>
+                        {isSelected && (
+                          <span className="text-[10px] text-emerald-400 bg-emerald-950/90 border border-emerald-600/60 px-1.5 py-0.2 rounded font-medium">
+                            ✓ 即時生效中
+                          </span>
+                        )}
                       </div>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
