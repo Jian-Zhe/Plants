@@ -5,30 +5,42 @@ import { inferBotanicalFallback, normalizeBotanicalFamily } from '../data/botani
 export const AVAILABLE_MODELS = [
   {
     id: 'gemini-3.1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite (超輕量省配額)',
-    tag: '極省額度 · 推薦',
-    desc: '配額上限高（高 RPM/RPD）、Token 消耗最少，不易觸發 429 資源耗盡，非常適合日常連續紀錄植物。',
+    name: 'Gemini 3.1 Flash Lite',
+    tag: '極省額度 · 推薦首選',
+    desc: 'Google 最新超輕量模型，配額限制最寬鬆、Token 消耗最少，專為高頻率查詢設計，最不易耗盡。',
     isRecommended: true,
   },
   {
-    id: 'gemini-flash-latest',
-    name: 'Gemini Flash (標準版)',
-    tag: '平衡款',
-    desc: '標準 Flash 模型，兼具回答速度與細緻度。',
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
+    tag: '輕量次級款 · 備援',
+    desc: '極低延遲的次級輕量模型，額度消耗極低，當首選模型暫時繁忙時可無縫替補。',
     isRecommended: false,
   },
   {
-    id: 'gemini-3.8-flash',
-    name: 'Gemini 3.8 Flash (最新高階版)',
-    tag: '高深度 · 耗配額快',
-    desc: '最新旗艦模型，植物學邏輯極其嚴謹，但免費層每分鐘請求限制嚴格，容易迅速耗盡額度。',
+    id: 'gemini-flash-latest',
+    name: 'Gemini Flash (標準穩定版)',
+    tag: '平衡穩定款',
+    desc: '標準 Flash 模型，兼具回答速度與細緻度，穩定支援各種 Google AI 帳號。',
+    isRecommended: false,
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    tag: '經典快速款 · 備援',
+    desc: '經典高速 Flash 模型，具備豐富植物認知能力，額度消耗適中，可作為可靠的備用選項。',
     isRecommended: false,
   },
 ] as const;
 
 export function getStoredModel(): string {
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('botanica_user_gemini_model') || 'gemini-3.1-flash-lite';
+    const val = localStorage.getItem('botanica_user_gemini_model');
+    // If user previously stored the now-removed high-tier model, automatically migrate to 3.1-flash-lite
+    if (!val || val === 'gemini-3.8-flash') {
+      return 'gemini-3.1-flash-lite';
+    }
+    return val;
   }
   return 'gemini-3.1-flash-lite';
 }
@@ -247,18 +259,22 @@ async function callGeminiDirectFast(
   prompt: string,
   preferredModel?: string
 ): Promise<Record<string, any>> {
-  // Strict model strategy:
-  // If the user selected a specific model, prioritize it strictly!
-  // If user selected a budget/lite model (like gemini-3.1-flash-lite or gemini-flash-latest),
-  // NEVER fall back to high-tier gemini-3.8-flash, which triggers 429 quota exhaustion.
+  // Sub-tier model resilience strategy:
+  // Strictly avoid high-tier models (gemini-3.8-flash is completely removed).
+  // Prioritize the user's selected sub-tier model; if it temporarily has no response,
+  // seamlessly fall back to other lightweight sub-tier models to guarantee high availability.
+  const allSubTierModels = [
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
+    'gemini-2.5-flash',
+  ];
+
   let candidateModels: string[];
-  if (preferredModel === 'gemini-3.8-flash') {
-    candidateModels = ['gemini-3.8-flash'];
-  } else if (preferredModel) {
-    const safeLiteFallbacks = ['gemini-3.1-flash-lite', 'gemini-flash-latest'].filter((m) => m !== preferredModel);
-    candidateModels = [preferredModel, ...safeLiteFallbacks];
+  if (preferredModel && allSubTierModels.includes(preferredModel)) {
+    candidateModels = [preferredModel, ...allSubTierModels.filter((m) => m !== preferredModel)];
   } else {
-    candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    candidateModels = allSubTierModels;
   }
 
   const errors: string[] = [];

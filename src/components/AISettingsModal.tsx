@@ -59,17 +59,17 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs sm:text-sm text-stone-300">
-          {/* Why Quota Depletes Explanation Box */}
-          <div className="p-3.5 bg-amber-950/40 border border-amber-600/60 rounded-2xl space-y-2">
-            <div className="flex items-center gap-2 text-amber-300 font-semibold text-xs sm:text-sm">
-              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>為什麼高階模型額度會太快耗盡？</span>
+          {/* Sub-tier and High-availability Model Explanation Box */}
+          <div className="p-3.5 bg-emerald-950/40 border border-emerald-600/50 rounded-2xl space-y-2">
+            <div className="flex items-center gap-2 text-emerald-300 font-semibold text-xs sm:text-sm">
+              <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>已移除高階耗能模型 · 升級多重次級備援</span>
             </div>
             <p className="text-stone-300 text-xs leading-relaxed">
-              Google Gemini 免費層（Free Tier）針對高階模型（如 <strong>Gemini 3.8 Flash</strong>）設有嚴格的每分鐘請求次數 (RPM) 與每日上限 (RPD)，連續幾次查詢就容易觸發 <code className="text-rose-300 bg-stone-900 px-1 rounded font-mono">429 資源耗盡 (RESOURCE_EXHAUSTED)</code>。
+              為徹底避免免費額度迅速被吃光，系統已全面<strong>移除最耗配額的旗艦模型</strong>，改為提供多款輕量級（Flash-Lite / Flash）次級模型選項。
             </p>
             <p className="text-emerald-300 text-xs leading-relaxed font-medium">
-              💡 <strong>推薦方案</strong>：選擇下方「<strong>Gemini 3.1 Flash Lite</strong>」，它是官方專為高頻率查詢設計的輕量模型，配額限制最寬鬆、速度最快且最不易耗盡！
+              💡 <strong>高可用備援機制</strong>：您可以自由選擇任一輕量模型；若所選模型恰逢 Google 伺服器繁忙或短暫無回應，系統會自動在下方其他輕量模型間<strong>無縫備援輪詢</strong>，兼顧省額度與高穩定性！
             </p>
           </div>
 

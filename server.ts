@@ -122,16 +122,21 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
 - elevation 只能是 'low', 'mid', 'high', 'all' 之一
 - abundance 只能是 'abundant', 'common', 'occasional', 'rare' 之一`;
 
+  const allSubTierModels = [
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
+    'gemini-2.5-flash',
+  ];
+
   let candidateModels: string[];
-  if (requestedModel === 'gemini-3.8-flash') {
-    candidateModels = ['gemini-3.8-flash'];
-  } else if (requestedModel) {
-    const safeLiteFallbacks = ['gemini-3.1-flash-lite', 'gemini-flash-latest'].filter(
-      (m) => m !== requestedModel.trim()
-    );
-    candidateModels = [requestedModel.trim(), ...safeLiteFallbacks];
+  if (typeof requestedModel === 'string' && allSubTierModels.includes(requestedModel.trim())) {
+    candidateModels = [
+      requestedModel.trim(),
+      ...allSubTierModels.filter((m) => m !== requestedModel.trim()),
+    ];
   } else {
-    candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    candidateModels = allSubTierModels;
   }
   const errorLogs: string[] = [];
 
