@@ -31,7 +31,16 @@ export default function App() {
   const [plants, setPlants] = useState<PlantItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 4000);
+  };
 
   // Active Modals State
   const [selectedPlant, setSelectedPlant] = useState<PlantItem | null>(null);
@@ -42,7 +51,6 @@ export default function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnlyFavorites, setIsOnlyFavorites] = useState(false);
-
 
   // Filter State
   const [filters, setFilters] = useState<PlantFilterOptions>({
@@ -67,16 +75,20 @@ export default function App() {
         if (redirectUser) {
           setCurrentUser(redirectUser);
           setIsLoginModalOpen(false);
+          showToast(`歡迎回來，${redirectUser.displayName || redirectUser.email || '植物家'}！已連線雲端`);
         }
+        setIsAuthLoading(false);
       })
       .catch((err) => {
         console.warn('Redirect check error:', err);
+        setIsAuthLoading(false);
       });
 
     let unsubscribeFirestore: (() => void) | null = null;
 
     const unsubscribeAuth = subscribeToAuth(async (user) => {
       setCurrentUser(user);
+      setIsAuthLoading(false);
       if (user) {
         setIsLoginModalOpen(false);
       }
@@ -133,6 +145,8 @@ export default function App() {
   const handleLogout = async () => {
     try {
       await logoutUser();
+      setCurrentUser(null);
+      showToast('已安全登出 Google 帳號，切換為本機離線模式');
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -297,6 +311,7 @@ export default function App() {
         onToggleOnlyFavorites={() => setIsOnlyFavorites(!isOnlyFavorites)}
         favoritesCount={favoritesCount}
         user={currentUser}
+        isAuthLoading={isAuthLoading}
         isSyncing={isSyncing}
         onLogin={handleLogin}
         onLogout={handleLogout}
@@ -460,6 +475,7 @@ export default function App() {
         }}
         onSave={handleSavePlant}
         editingPlant={editingPlant}
+        onOpenAiSettings={() => setIsAiSettingsOpen(true)}
       />
 
       <BackupModal
@@ -483,8 +499,22 @@ export default function App() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={() => setIsLoginModalOpen(false)}
+        onSuccess={(loggedUser) => {
+          if (loggedUser) {
+            setCurrentUser(loggedUser);
+            showToast(`登入成功！已連線 Google 雲端同步 (${loggedUser.displayName || loggedUser.email})`);
+          }
+          setIsLoginModalOpen(false);
+        }}
       />
+
+      {/* Floating Notification Toast */}
+      {toastMessage && (
+        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-emerald-950/95 text-emerald-100 border border-emerald-500/80 shadow-2xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -7,8 +7,7 @@ import {
   AbundanceLevel,
   PlantImage,
 } from '../types/plant';
-import { INITIAL_PLANTS } from '../data/plantPresets';
-import { generatePlantDetailsWithAI, findPresetMatch, AutofillResult } from '../utils/gemini';
+import { generatePlantDetailsWithAI, AutofillResult } from '../utils/gemini';
 import {
   X,
   Sparkles,
@@ -29,6 +28,7 @@ import {
   ChevronDown,
   ChevronUp,
   Database,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Props {
@@ -36,6 +36,7 @@ interface Props {
   onClose: () => void;
   onSave: (plant: PlantItem) => void;
   editingPlant: PlantItem | null;
+  onOpenAiSettings?: () => void;
 }
 
 export const PlantFormModal: React.FC<Props> = ({
@@ -43,6 +44,7 @@ export const PlantFormModal: React.FC<Props> = ({
   onClose,
   onSave,
   editingPlant,
+  onOpenAiSettings,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -104,16 +106,10 @@ export const PlantFormModal: React.FC<Props> = ({
   const [userNotes, setUserNotes] = useState('');
   const [foragingLocations, setForagingLocations] = useState('');
 
-  // Assistant states
+  // AI Assistant states (Strict AI-Only)
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [presetSuggestions, setPresetSuggestions] = useState<PlantItem[]>([]);
-  const [showPresetsDropdown, setShowPresetsDropdown] = useState(false);
-  const [dismissedPresetNames, setDismissedPresetNames] = useState<string[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
   const [autofillStatus, setAutofillStatus] = useState<AutofillResult | null>(null);
-  const [showHelperBanner, setShowHelperBanner] = useState<boolean>(() => {
-    return localStorage.getItem('wildplants_hide_helper_banner') !== 'true';
-  });
 
   // Quick preset families
   const commonFamilies = [
@@ -275,113 +271,10 @@ export const PlantFormModal: React.FC<Props> = ({
     setAutofillStatus(null);
   };
 
-  // Preset match detector on name change (honors dismissals)
+  // Update plant name and reset previous error
   const handleNameChange = (val: string) => {
     setName(val);
-    const trimmed = val.trim();
-    if (trimmed && !dismissedPresetNames.includes(trimmed)) {
-      const matches = INITIAL_PLANTS.filter(
-        (p) =>
-          p.name.includes(trimmed) ||
-          p.aliases.some((a) => a.includes(trimmed)) ||
-          p.scientificName.toLowerCase().includes(trimmed.toLowerCase())
-      );
-      setPresetSuggestions(matches);
-      setShowPresetsDropdown(matches.length > 0);
-    } else {
-      setPresetSuggestions([]);
-      setShowPresetsDropdown(false);
-    }
-  };
-
-  const handleDismissPresets = () => {
-    setShowPresetsDropdown(false);
-    const trimmed = name.trim();
-    if (trimmed && !dismissedPresetNames.includes(trimmed)) {
-      setDismissedPresetNames((prev) => [...prev, trimmed]);
-    }
-  };
-
-  // Populate from preset
-  const applyPreset = (preset: PlantItem) => {
-    setName(preset.name);
-    setScientificName(preset.scientificName);
-    setAliases(preset.aliases);
-    setFamily(preset.family);
-    setCategory(preset.category);
-
-    const targetIsEdible = preset.isEdible !== false;
-    setIsEdible(targetIsEdible);
-
-    setLeaves(preset.characteristics.leaves);
-    setStemAndRoots(preset.characteristics.stemAndRoots);
-    setFlowers(preset.characteristics.flowers);
-    setFruitsAndSeeds(preset.characteristics.fruitsAndSeeds || '');
-    setDistinctiveFeatures(preset.characteristics.distinctiveFeatures);
-
-    if (targetIsEdible) {
-      setEdibleParts(preset.edibleParts || []);
-      setCookingMethods(preset.preparation.cookingMethods || []);
-      setCustomCookingMethodInput('');
-      setShowCustomCookingInput(false);
-      setAntinutrients(preset.preparation.antinutrients || '');
-      setAntinutrientRemoval(preset.preparation.antinutrientRemoval || '');
-      setToxicity(preset.preparation.toxicity);
-      setToxicityNotes(preset.preparation.toxicityNotes);
-      setFlavorProfile(preset.preparation.flavorProfile || '');
-      setStorageMethod(preset.preparation.storageMethod || '');
-
-      setCalories(preset.nutrition.calories);
-      setProtein(preset.nutrition.protein);
-      setCarbohydrates(preset.nutrition.carbohydrates);
-      setFat(preset.nutrition.fat);
-      setFiber(preset.nutrition.fiber);
-      setCalciumMg(preset.nutrition.micronutrients?.calciumMg || 0);
-      setIronMg(preset.nutrition.micronutrients?.ironMg || 0);
-      setVitaminCMg(preset.nutrition.micronutrients?.vitaminCMg || 0);
-      setPotassiumMg(preset.nutrition.micronutrients?.potassiumMg || 0);
-    } else {
-      setEdibleParts([]);
-      setCookingMethods([]);
-      setCustomCookingMethodInput('');
-      setShowCustomCookingInput(false);
-      setAntinutrients('');
-      setAntinutrientRemoval('');
-      setToxicity(preset.preparation.toxicity || 'warning');
-      setToxicityNotes(preset.preparation.toxicityNotes || '非食用植物 / 具毒性或未明，嚴禁採食！');
-      setFlavorProfile('');
-      setStorageMethod('');
-
-      setCalories(0);
-      setProtein(0);
-      setCarbohydrates(0);
-      setFat(0);
-      setFiber(0);
-      setCalciumMg(0);
-      setIronMg(0);
-      setVitaminCMg(0);
-      setPotassiumMg(0);
-    }
-
-    setHabitats(preset.distribution.habitat);
-    setElevation(preset.distribution.elevation);
-    setElevationDesc(preset.distribution.elevationDesc);
-    setRegions(preset.distribution.regions);
-    setSeasons(preset.distribution.season);
-    setAbundance(preset.distribution.abundance);
-
-    if (images.length === 0 && preset.images.length > 0) {
-      setImages(preset.images);
-    }
-
-    setAutofillStatus({
-      source: 'preset_library',
-      sourceLabel: '內建經典植物範本',
-      sourceDescription: `已成功套用內建植物「${preset.name}」完整圖鑑與${targetIsEdible ? '求生資料' : '毒性辨識資料'}（包含學名、科別、特徵與分佈）。`,
-      data: preset,
-    });
-
-    setShowPresetsDropdown(false);
+    if (aiError) setAiError(null);
   };
 
   // Add custom survival cooking method
@@ -500,8 +393,10 @@ export const PlantFormModal: React.FC<Props> = ({
         if (generated.distribution.season && generated.distribution.season.length > 0) setSeasons(generated.distribution.season);
         if (generated.distribution.abundance) setAbundance(generated.distribution.abundance);
       }
-    } catch (err) {
-      setAiError('AI 自動填入時發生錯誤：' + String(err));
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setAiError(errMsg);
+      setAutofillStatus(null);
     } finally {
       setIsAiLoading(false);
     }
@@ -720,147 +615,71 @@ export const PlantFormModal: React.FC<Props> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-7 overflow-y-auto space-y-7 text-stone-200">
-          {/* Quick Preset Floating Bar / Smart Autofill Helper */}
-          {showHelperBanner ? (
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-stone-900 border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md relative">
-              <div className="flex items-center gap-2 pr-6 sm:pr-0">
-                <Sparkles className="w-5 h-5 text-emerald-400 shrink-0" />
-                <div className="text-xs text-stone-200">
-                  <strong className="text-emerald-300">智慧填寫小幫手：</strong>
-                  輸入植物名稱後，可一鍵透過內建百科或 AI 生成完整特徵、營養與分佈！
+          {/* AI Error Alert with Actionable Diagnostics */}
+          {aiError && (
+            <div className="p-4 rounded-2xl bg-rose-950/90 border border-rose-500/80 text-rose-100 space-y-2.5 animate-in fade-in shadow-xl">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-rose-300">
+                  <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                  <span>AI 智能補全未成功</span>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                <select
-                  onChange={(e) => {
-                    const target = INITIAL_PLANTS.find((p) => p.name === e.target.value);
-                    if (target) applyPreset(target);
-                  }}
-                  defaultValue=""
-                  className="w-full sm:w-auto bg-stone-950 border border-emerald-600/70 text-emerald-200 rounded-xl px-3 py-1.5 text-xs font-semibold focus:outline-none cursor-pointer"
-                >
-                  <option value="" disabled>
-                    ⚡ 快速套用 18 種經典植物範本...
-                  </option>
-                  {INITIAL_PLANTS.map((p) => (
-                    <option key={p.id} value={p.name}>
-                      {p.name} ({p.family.split(' ')[0]} - {p.nutrition.calories}kcal, 蛋白{p.nutrition.protein}g)
-                    </option>
-                  ))}
-                </select>
-
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowHelperBanner(false);
-                    localStorage.setItem('wildplants_hide_helper_banner', 'true');
-                  }}
-                  className="p-1.5 text-stone-400 hover:text-stone-200 hover:bg-stone-800 rounded-lg transition shrink-0"
-                  title="關閉小幫手提示（維持畫面簡潔）"
-                  aria-label="關閉小幫手提示"
+                  onClick={() => setAiError(null)}
+                  className="p-1 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition"
+                  aria-label="關閉錯誤提示"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="flex justify-end -mt-3 -mb-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowHelperBanner(true);
-                  localStorage.removeItem('wildplants_hide_helper_banner');
-                }}
-                className="text-xs text-stone-400 hover:text-emerald-400 flex items-center gap-1.5 px-3 py-1 rounded-xl hover:bg-stone-800/80 transition border border-stone-800"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span>展開智慧填寫小幫手範本</span>
-              </button>
-            </div>
-          )}
 
-          {/* AI Error Alert if any */}
-          {aiError && (
-            <div className="p-3.5 bg-rose-950/70 border border-rose-600/70 rounded-2xl flex items-start gap-2.5 text-xs text-rose-200">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <div className="font-semibold text-rose-300">AI 產生提示</div>
-                <p className="mt-0.5 text-stone-300">{aiError}</p>
+              <div className="p-3 rounded-xl bg-stone-950/90 border border-rose-800/60 font-mono text-xs text-rose-200 leading-relaxed break-all">
+                {aiError}
               </div>
-              <button
-                type="button"
-                onClick={() => setAiError(null)}
-                className="text-stone-400 hover:text-white p-1"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+
+              <div className="pt-1 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="text-stone-300 flex items-center gap-1.5">
+                  <span className="text-amber-400 font-semibold">💡 故障排除：</span>
+                  <span>可前往「AI 設定」確認或輸入您的 Gemini API Key，或確認植物名稱是否正確。</span>
+                </div>
+                {onOpenAiSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenAiSettings}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-900/80 hover:bg-amber-800 border border-amber-500/70 text-amber-200 font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-sm text-xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>前往設定 Gemini API Key</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Autofill Source Feedback Banner */}
+          {/* AI Success Banner */}
           {autofillStatus && (
-            <div
-              className={`p-3.5 rounded-2xl border flex items-start justify-between gap-3 text-xs shadow-md transition-all ${
-                autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                  ? 'bg-emerald-950/70 border-emerald-500/80 text-emerald-100'
-                  : autofillStatus.source === 'preset_library'
-                  ? 'bg-blue-950/70 border-blue-500/80 text-blue-100'
-                  : 'bg-amber-950/70 border-amber-600/80 text-amber-100'
-              }`}
-            >
+            <div className="p-3.5 rounded-2xl bg-emerald-950/80 border border-emerald-500/80 text-emerald-100 flex items-start justify-between gap-3 shadow-md animate-in fade-in">
               <div className="flex items-start gap-2.5">
-                <div
-                  className={`p-1.5 rounded-xl shrink-0 mt-0.5 ${
-                    autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                      ? 'bg-emerald-800/80 text-emerald-200'
-                      : autofillStatus.source === 'preset_library'
-                      ? 'bg-blue-800/80 text-blue-200'
-                      : 'bg-amber-800/80 text-amber-200'
-                  }`}
-                >
-                  {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server' ? (
-                    <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
-                  ) : autofillStatus.source === 'preset_library' ? (
-                    <BookOpen className="w-4 h-4 text-blue-300" />
-                  ) : (
-                    <Database className="w-4 h-4 text-amber-300" />
-                  )}
+                <div className="p-1.5 rounded-xl bg-emerald-800 text-emerald-200 shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
                 </div>
-
-                <div className="space-y-0.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-sm tracking-wide text-white">
-                      {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                        ? '✨ 成功由 Gemini AI 真正生成'
-                        : autofillStatus.source === 'preset_library'
-                        ? '📖 套用內建經典植物範本'
-                        : '📚 由內建野外植物學百科庫填入'}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                          ? 'bg-emerald-900/90 border-emerald-400/60 text-emerald-200'
-                          : autofillStatus.source === 'preset_library'
-                          ? 'bg-blue-900/90 border-blue-400/60 text-blue-200'
-                          : 'bg-amber-900/90 border-amber-400/60 text-amber-200'
-                      }`}
-                    >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-white">✨ AI 智能自動補全成功</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900 text-emerald-300 border border-emerald-700 font-medium">
                       {autofillStatus.sourceLabel}
                     </span>
                   </div>
-                  <p className="text-stone-300 text-xs leading-relaxed">
+                  <p className="text-xs text-stone-300 mt-0.5">
                     {autofillStatus.sourceDescription}
                   </p>
                 </div>
               </div>
-
               <button
                 type="button"
                 onClick={() => setAutofillStatus(null)}
                 className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition shrink-0"
-                title="關閉來源提示"
-                aria-label="關閉來源提示"
+                aria-label="關閉提示"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -905,83 +724,16 @@ export const PlantFormModal: React.FC<Props> = ({
                   </button>
                 </div>
 
-                {/* Real-time source badge below plant name */}
+                {/* Status indicator below plant name if generated */}
                 {autofillStatus && (
-                  <div className="mt-1.5 flex items-center justify-between text-[11px] px-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`inline-block w-2 h-2 rounded-full ${
-                          autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                            ? 'bg-emerald-400 animate-pulse'
-                            : autofillStatus.source === 'preset_library'
-                            ? 'bg-blue-400'
-                            : 'bg-amber-400'
-                        }`}
-                      />
-                      <span className="text-stone-300">
-                        填入來源：
-                        <strong
-                          className={`font-semibold ${
-                            autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                              ? 'text-emerald-300'
-                              : autofillStatus.source === 'preset_library'
-                              ? 'text-blue-300'
-                              : 'text-amber-300'
-                          }`}
-                        >
-                          {autofillStatus.sourceLabel}
-                        </strong>
-                      </span>
-                    </div>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-800/80 font-medium'
-                          : autofillStatus.source === 'preset_library'
-                          ? 'bg-blue-950 text-blue-300 border border-blue-800/80'
-                          : 'bg-amber-950 text-amber-300 border border-amber-800/80'
-                      }`}
-                    >
-                      {autofillStatus.source === 'gemini_direct' || autofillStatus.source === 'gemini_server'
-                        ? '🤖 真正靠 AI 生成'
-                        : autofillStatus.source === 'preset_library'
-                        ? '📖 內建範本庫'
-                        : '📚 離線知識庫'}
+                  <div className="mt-1.5 flex items-center justify-between text-[11px] px-0.5 text-emerald-400">
+                    <span className="flex items-center gap-1 font-medium">
+                      <Sparkles className="w-3 h-3 text-emerald-400 animate-pulse" />
+                      已透過 Gemini AI 填入資料
                     </span>
-                  </div>
-                )}
-
-                {/* Preset Suggestions Dropdown with Dismiss button */}
-                {showPresetsDropdown && presetSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-stone-950 border border-emerald-600/80 rounded-xl shadow-2xl p-2 max-h-56 overflow-y-auto">
-                    <div className="flex items-center justify-between px-2 py-1 border-b border-stone-800 pb-1.5 mb-1.5">
-                      <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span>找到內建百科範本（點擊套用）：</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleDismissPresets}
-                        className="text-[11px] text-stone-400 hover:text-white px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 transition flex items-center gap-1 cursor-pointer"
-                        title="關閉提示，不使用範本"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>關閉提示 / 不使用範本</span>
-                      </button>
-                    </div>
-                    {presetSuggestions.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => applyPreset(item)}
-                        className="w-full text-left px-3 py-1.5 hover:bg-emerald-950/80 rounded-lg text-xs text-stone-200 flex items-center justify-between transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-white">{item.name}</span>
-                        <span className="text-[11px] text-stone-400 font-serif italic">
-                          {item.scientificName} · {item.family.split(' ')[0]}
-                        </span>
-                      </button>
-                    ))}
+                    <span className="text-[10px] text-emerald-500 font-mono">
+                      {autofillStatus.sourceLabel}
+                    </span>
                   </div>
                 )}
               </div>

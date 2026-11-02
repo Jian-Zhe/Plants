@@ -2,6 +2,45 @@ import { PlantItem, ToxicityLevel, PlantCategory, ElevationCategory, AbundanceLe
 import { INITIAL_PLANTS } from '../data/plantPresets';
 import { inferBotanicalFallback, normalizeBotanicalFamily } from '../data/botanicalKnowledge';
 
+export const AVAILABLE_MODELS = [
+  {
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite (超輕量省配額)',
+    tag: '極省額度 · 推薦',
+    desc: '配額上限高（高 RPM/RPD）、Token 消耗最少，不易觸發 429 資源耗盡，非常適合日常連續紀錄植物。',
+    isRecommended: true,
+  },
+  {
+    id: 'gemini-flash-latest',
+    name: 'Gemini Flash (標準版)',
+    tag: '平衡款',
+    desc: '標準 Flash 模型，兼具回答速度與細緻度。',
+    isRecommended: false,
+  },
+  {
+    id: 'gemini-3.8-flash',
+    name: 'Gemini 3.8 Flash (最新高階版)',
+    tag: '高深度 · 耗配額快',
+    desc: '最新旗艦模型，植物學邏輯極其嚴謹，但免費層每分鐘請求限制嚴格，容易迅速耗盡額度。',
+    isRecommended: false,
+  },
+] as const;
+
+export function getStoredModel(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('botanica_user_gemini_model') || 'gemini-3.1-flash-lite';
+  }
+  return 'gemini-3.1-flash-lite';
+}
+
+export function setStoredModel(model: string): void {
+  if (typeof window !== 'undefined') {
+    if (model.trim()) {
+      localStorage.setItem('botanica_user_gemini_model', model.trim());
+    }
+  }
+}
+
 export function getStoredApiKey(): string {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('botanica_user_gemini_key') || '';
@@ -203,8 +242,15 @@ function mapRawToPlantItem(parsed: Record<string, any>, plantName: string): Part
 }
 
 // Direct fast Gemini call for client-side / GitHub Pages usage
-async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Record<string, any>> {
-  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+async function callGeminiDirectFast(
+  apiKey: string,
+  prompt: string,
+  preferredModel?: string
+): Promise<Record<string, any>> {
+  const baseModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  const candidateModels = preferredModel
+    ? [preferredModel, ...baseModels.filter((m) => m !== preferredModel)]
+    : baseModels;
   let lastError: Error | null = null;
 
   for (const model of candidateModels) {
@@ -250,11 +296,7 @@ async function callGeminiDirectFast(apiKey: string, prompt: string): Promise<Rec
   throw lastError || new Error('所有 Gemini 模型連線逾時或失敗');
 }
 
-export type AutofillSource =
-  | 'gemini_direct'
-  | 'gemini_server'
-  | 'preset_library'
-  | 'botanical_knowledge';
+export type AutofillSource = 'gemini_direct' | 'gemini_server';
 
 export interface AutofillResult {
   data: Partial<PlantItem>;
@@ -263,14 +305,15 @@ export interface AutofillResult {
   sourceDescription: string;
 }
 
-// Generate structured plant information using Server Proxy or Client API Key
+// Generate structured plant information using Server Proxy or Client API Key (Strict AI-Only)
 export async function generatePlantDetailsWithAI(plantName: string): Promise<AutofillResult> {
   const cleanName = plantName.trim();
   if (!cleanName) {
-    throw new Error('請輸入植物名稱');
+    throw new Error('請輸入植物中文名稱');
   }
 
   const clientKey = getStoredApiKey();
+  const selectedModel = getStoredModel();
   const isGitHubPages = typeof window !== 'undefined' && window.location.hostname.includes('github.io');
 
   const detailedPrompt = `請以「野外求生植物學家、野外毒物學專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的植物學鑑定與食用/毒性安全性檔案。請以繁體中文 (Traditional Chinese) 提供。
@@ -307,7 +350,7 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Aut
     "prepMethod": "求生前置清洗與脫毒處理步驟（不可食則註記不可食用）",
     "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀"],
     "toxicity": "none",
-    "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中學毒理與風險)",
+    "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中毒理與風險)",
     "antinutrients": "主要抗營養物質或毒素成分",
     "antinutrientRemoval": "對應之求生消除與脫毒手法（不可食則註記無法藉由烹煮脫毒）",
     "flavorProfile": "野外口感描述（不可食則註記不可食用）",
@@ -339,69 +382,58 @@ export async function generatePlantDetailsWithAI(plantName: string): Promise<Aut
 注意：
 - isEdible 必須為 boolean 值 (true 或 false)`;
 
-  // Case A: If user provided a client API Key, use direct fast REST
+  // If user provided a client API Key, use direct fast REST call with preferred model
   if (clientKey) {
     try {
-      const parsed = await callGeminiDirectFast(clientKey, detailedPrompt);
+      const parsed = await callGeminiDirectFast(clientKey, detailedPrompt, selectedModel);
       const data = mapRawToPlantItem(parsed, cleanName);
       return {
         data,
         source: 'gemini_direct',
-        sourceLabel: 'Gemini AI (個人 API 金鑰)',
-        sourceDescription: `已成功呼叫 Google Gemini 大模型，為「${cleanName}」即時專屬生成全新求生與植物學檔案！`,
+        sourceLabel: `Gemini AI (${selectedModel})`,
+        sourceDescription: `已成功呼叫 Google Gemini 模型，即時為「${cleanName}」生成專屬野外特徵與求生安全檔案！`,
       };
     } catch (clientApiErr) {
-      console.warn('Client-side Gemini API call failed, attempting fallback...', clientApiErr);
+      const errMsg = clientApiErr instanceof Error ? clientApiErr.message : String(clientApiErr);
+      throw new Error(`Gemini API 金鑰呼叫失敗：${errMsg}。請確認右上角「AI 設定」中的 API Key 是否有效或配額充足。`);
     }
   }
 
-  // Case B: If not on GitHub Pages, call server proxy (30s timeout so LLM has ample time)
-  if (!isGitHubPages) {
-    try {
-      const res = await fetch('/api/gemini/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ plantName: cleanName }),
-        signal: AbortSignal.timeout(30000), // 30s timeout to allow full generation
-      });
-
-      if (res.ok) {
-        const result = await res.json();
-        if (result.success && result.data) {
-          const isRealAi = result.source === 'ai';
-          const data = mapRawToPlantItem(result.data, cleanName);
-          return {
-            data,
-            source: isRealAi ? 'gemini_server' : 'botanical_knowledge',
-            sourceLabel: isRealAi ? 'Gemini 3.1 Flash AI' : '內建植物學百科庫',
-            sourceDescription: isRealAi
-              ? `已成功透過雲端 Gemini AI 運算生成，為「${cleanName}」產出專屬求生食用與特徵資料！`
-              : `伺服器未啟用 AI 服務，已改由內建野外植物學百科庫為「${cleanName}」填入資料。`,
-          };
-        }
-      }
-    } catch (serverErr) {
-      console.warn('Server proxy unavailable or timed out, continuing with botanical knowledge synthesis...', serverErr);
-    }
+  // If running on static GitHub Pages without client key
+  if (isGitHubPages) {
+    throw new Error('目前部署於 GitHub Pages 靜態網站，請點擊右上角「AI 設定」輸入您的 Google Gemini API Key，即可啟用 AI 智能補全功能！');
   }
 
-  // Case C: Botanical database knowledge synthesis (species-specific, complete taxonomy guaranteed)
-  const fallback = inferBotanicalFallback(cleanName);
-  const isPreset = INITIAL_PLANTS.some(
-    (p) => p.name.includes(cleanName) || cleanName.includes(p.name)
-  );
+  // Call Server-side Proxy (sending clientKey and user-selected model)
+  try {
+    const res = await fetch('/api/gemini/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(clientKey ? { 'x-gemini-api-key': clientKey } : {}),
+      },
+      body: JSON.stringify({ plantName: cleanName, apiKey: clientKey, model: selectedModel }),
+      signal: AbortSignal.timeout(35000),
+    });
 
-  return {
-    data: {
-      ...fallback,
-      name: cleanName,
-    },
-    source: isPreset ? 'preset_library' : 'botanical_knowledge',
-    sourceLabel: isPreset ? '內建經典植物圖鑑' : '內建植物學百科庫 (離線兜底)',
-    sourceDescription: isGitHubPages && !clientKey
-      ? `目前在 GitHub Pages 靜態網站且未設定 API Key，已由系統內建植物學百科庫為「${cleanName}」填入資料。若需真實 AI 即時生成，請點擊右上角設定 API Key！`
-      : `目前未連線至 AI 伺服器，已由系統內建野外植物學百科庫為「${cleanName}」完成填入。`,
-  };
+    const result = await res.json().catch(() => null);
+
+    if (!res.ok || !result || !result.success) {
+      const errorMsg = result?.error || `AI 伺服器回應異常 (HTTP ${res.status}: ${res.statusText})`;
+      throw new Error(errorMsg);
+    }
+
+    const data = mapRawToPlantItem(result.data, cleanName);
+    return {
+      data,
+      source: 'gemini_server',
+      sourceLabel: `Gemini AI (${result.model || selectedModel})`,
+      sourceDescription: `已成功透過雲端 Gemini AI 為「${cleanName}」即時運算生成特徵、辨識要點與安全性檔案！`,
+    };
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      throw err;
+    }
+    throw new Error('連線至 AI 伺服器失敗，請確認網路連線是否正常。');
+  }
 }

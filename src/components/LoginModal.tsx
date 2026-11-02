@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, Cloud, Sparkles, ShieldCheck, Smartphone, Monitor, Copy, Check, ExternalLink, AlertTriangle, ArrowRight } from 'lucide-react';
 import { loginWithGoogle, subscribeToAuth, isMobileOrPWA, auth } from '../firebase';
 
+import { User } from 'firebase/auth';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (user?: User | null) => void;
 }
 
 export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
@@ -21,7 +23,7 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
 
     // Check immediately if already logged in
     if (auth.currentUser) {
-      onSuccess();
+      onSuccess(auth.currentUser);
       onClose();
       return;
     }
@@ -29,7 +31,7 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
     const unsubscribe = subscribeToAuth((user) => {
       if (user) {
         setIsLoading(false);
-        onSuccess();
+        onSuccess(user);
         onClose();
       }
     });
@@ -46,8 +48,9 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
     setErrorMessage(null);
     try {
       const user = await loginWithGoogle(forceRedirect);
-      if (user || auth.currentUser) {
-        onSuccess();
+      const loggedUser = user || auth.currentUser;
+      if (loggedUser) {
+        onSuccess(loggedUser);
         onClose();
       }
       // If user is null and not logged in, page is redirecting to accounts.google.com
@@ -57,7 +60,7 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
 
       // Check again if user actually succeeded despite error
       if (auth.currentUser) {
-        onSuccess();
+        onSuccess(auth.currentUser);
         onClose();
         return;
       }

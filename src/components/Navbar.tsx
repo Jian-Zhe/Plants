@@ -23,6 +23,7 @@ interface Props {
   onToggleOnlyFavorites: () => void;
   favoritesCount: number;
   user: User | null;
+  isAuthLoading?: boolean;
   isSyncing: boolean;
   onLogin: () => void;
   onLogout: () => void;
@@ -36,6 +37,7 @@ export const Navbar: React.FC<Props> = ({
   onToggleOnlyFavorites,
   favoritesCount,
   user,
+  isAuthLoading = false,
   isSyncing,
   onLogin,
   onLogout,
@@ -96,27 +98,35 @@ export const Navbar: React.FC<Props> = ({
         {/* Right: Controls */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Cloud Sync / User Button */}
-          {user ? (
+          {isAuthLoading ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs bg-stone-800/80 border border-stone-700 text-stone-400 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-[11px] whitespace-nowrap">驗證中...</span>
+            </div>
+          ) : user ? (
             <div className="relative shrink-0" ref={userMenuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-xl bg-stone-800/80 hover:bg-stone-700 border border-emerald-600/50 text-stone-200 transition cursor-pointer text-xs"
+                className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-emerald-950/90 hover:bg-emerald-900 border border-emerald-500/80 text-emerald-200 transition cursor-pointer text-xs shadow-sm shadow-emerald-950/60"
                 title={`${user.displayName || user.email} (Firebase 雲端已同步)`}
               >
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'User'}
-                    className="w-6 h-6 rounded-full border border-emerald-400/60 shrink-0"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border border-emerald-400/80 shrink-0"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-emerald-800 text-emerald-200 flex items-center justify-center font-bold text-xs shrink-0">
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-800 text-emerald-200 flex items-center justify-center font-bold text-[10px] sm:text-xs shrink-0">
                     {(user.displayName || user.email || 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span className="hidden sm:inline font-medium max-w-[80px] truncate text-emerald-300">
-                  {user.displayName?.split(' ')[0] || '我的雲端'}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="font-bold text-emerald-300 text-xs whitespace-nowrap">已登入</span>
+                  <span className="hidden md:inline font-medium text-[11px] max-w-[80px] truncate text-emerald-400/80">
+                    · {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
+                  </span>
+                </div>
                 <span className={`w-2 h-2 rounded-full bg-emerald-400 shrink-0 ${isSyncing ? 'animate-ping' : ''}`} />
               </button>
 
@@ -132,9 +142,9 @@ export const Navbar: React.FC<Props> = ({
                     <div className="px-2 py-1.5 border-b border-stone-800 pb-2 mb-1.5">
                       <p className="font-semibold text-white truncate">{user.displayName || '植物紀錄家'}</p>
                       <p className="text-[11px] text-stone-400 truncate">{user.email}</p>
-                      <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400">
+                      <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <span>Firebase 雲端即時同步中</span>
+                        <span>Google 雲端即時同步中</span>
                       </div>
                     </div>
 
@@ -260,11 +270,14 @@ export const Navbar: React.FC<Props> = ({
                       </div>
                     </button>
                   ) : (
-                  <div className="px-3.5 py-2 border-b border-stone-800 text-[11px]">
-                    <div className="text-emerald-300 font-medium truncate">{user.displayName || user.email}</div>
-                    <div className="text-stone-400 text-[10px]">☁️ Firebase 雲端同步中</div>
-                  </div>
-                )}
+                    <div className="px-3.5 py-2.5 border-b border-stone-800 bg-emerald-950/40 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="truncate">已登入：{user.displayName || user.email}</span>
+                      </div>
+                      <div className="text-emerald-400/80 text-[10px] mt-0.5">☁️ Google 雲端即時同步中</div>
+                    </div>
+                  )}
 
                 <button
                   onClick={() => {

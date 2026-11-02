@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { inferBotanicalFallback, normalizeBotanicalFamily } from './src/data/botanicalKnowledge';
+import { normalizeBotanicalFamily } from './src/data/botanicalKnowledge';
 
 dotenv.config();
 
@@ -16,30 +16,43 @@ const port = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-// Server-side Gemini AI generation endpoint
+// Server-side Gemini AI generation endpoint (Strict AI-Only, Transparent Diagnostics)
 app.post('/api/gemini/generate', async (req: Request, res: Response) => {
-  const { plantName } = req.body;
+  const { plantName, apiKey: bodyApiKey, model: requestedModel } = req.body;
+  const headerApiKey = req.headers['x-gemini-api-key'] as string | undefined;
   const cleanName = typeof plantName === 'string' ? plantName.trim() : '';
 
   if (!cleanName) {
-    res.status(400).json({ error: '請提供植物名稱' });
+    res.status(400).json({ success: false, error: '請提供欲查詢之植物名稱' });
     return;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  // Support server env key or user-provided key from client
+  const effectiveApiKey =
+    (typeof bodyApiKey === 'string' && bodyApiKey.trim()) ||
+    (typeof headerApiKey === 'string' && headerApiKey.trim()) ||
+    process.env.GEMINI_API_KEY?.trim();
 
-  if (apiKey) {
-    const ai = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        timeout: 30000,
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
+  if (!effectiveApiKey) {
+    res.status(400).json({
+      success: false,
+      error:
+        '尚未設定 Gemini API Key。請點擊右上角「AI 設定」填入您的 Google Gemini API Key（或在伺服器環境變數設定 GEMINI_API_KEY），即可啟用 AI 智能補全。',
     });
+    return;
+  }
 
-    const prompt = `請以「野外求生植物學家、野外毒物學專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的植物學鑑定與食用/毒性安全性檔案。請以繁體中文 (Traditional Chinese) 提供。
+  const ai = new GoogleGenAI({
+    apiKey: effectiveApiKey,
+    httpOptions: {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const prompt = `請以「野外求生植物學家、野外毒物學專家與民族植物學家」身份，為植物「${cleanName}」生成詳盡客觀的植物學鑑定與食用/毒性安全性檔案。請以繁體中文 (Traditional Chinese) 提供。
 
 【重要準則】
 1. 【食用性質判斷 isEdible】：首先精準判斷該植物是否可供人類安全食用！若為【不可食用、具毒性、或非食用植物】（例如：姑婆芋、曼陀羅、夾竹桃、咬人貓、馬纓丹、毛地黃、海檬果、毒芹、斷腸草、相思豆等），"isEdible" 必須設為 false！若是安全可食之野生蔬菜/野菜，"isEdible" 設為 true。
@@ -73,7 +86,7 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
     "prepMethod": "求生前置清洗與脫毒處理步驟（不可食則註記不可食用）",
     "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀"],
     "toxicity": "none",
-    "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中學毒理與風險)",
+    "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中毒理與風險)",
     "antinutrients": "主要抗營養物質或毒素成分",
     "antinutrientRemoval": "對應之求生消除與脫毒手法（不可食則註記無法藉由烹煮脫毒）",
     "flavorProfile": "野外口感描述（不可食則註記不可食用）",
@@ -109,69 +122,70 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
 - elevation 只能是 'low', 'mid', 'high', 'all' 之一
 - abundance 只能是 'abundant', 'common', 'occasional', 'rare' 之一`;
 
-    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  const defaultModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+  const candidateModels =
+    typeof requestedModel === 'string' && requestedModel.trim()
+      ? [requestedModel.trim(), ...defaultModels.filter((m) => m !== requestedModel.trim())]
+      : defaultModels;
+  const errorLogs: string[] = [];
 
-    for (const model of candidateModels) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            responseMimeType: 'application/json',
-          },
-        });
+  for (const model of candidateModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-        const text = response.text?.trim() || '{}';
-        const parsed = JSON.parse(text);
-        if (parsed && typeof parsed === 'object') {
-          // Normalize taxonomy
-          const fallback = inferBotanicalFallback(cleanName);
-          if (parsed.family) {
-            parsed.family = normalizeBotanicalFamily(String(parsed.family));
-          } else {
-            parsed.family = fallback.family;
-          }
-          if (!parsed.scientificName || typeof parsed.scientificName !== 'string' || !parsed.scientificName.trim()) {
-            parsed.scientificName = fallback.scientificName;
-          }
-
-          // Strict edibility normalization
-          if (fallback.isEdible === false || parsed.isEdible === false) {
-            parsed.isEdible = false;
-          } else if (typeof parsed.isEdible !== 'boolean') {
-            parsed.isEdible = true;
-          }
-
-          if (parsed.isEdible === false) {
-            parsed.edibleParts = [];
-            if (parsed.preparation) {
-              parsed.preparation.cookingMethods = [];
-              parsed.preparation.toxicity = parsed.preparation.toxicity === 'none' ? 'warning' : parsed.preparation.toxicity;
-              parsed.preparation.prepMethod = parsed.preparation.prepMethod || '此植物非食用植物 / 具毒性或未明，嚴禁食用';
-            }
-            parsed.nutrition = {
-              calories: 0,
-              protein: 0,
-              carbohydrates: 0,
-              fat: 0,
-              fiber: 0,
-              micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
-              nutritionHighlights: ['無法食用', '非食用植物'],
-            };
-          }
-
-          res.json({ success: true, data: parsed, source: 'ai' });
-          return;
+      const text = response.text?.trim() || '{}';
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object') {
+        if (parsed.family) {
+          parsed.family = normalizeBotanicalFamily(String(parsed.family));
         }
-      } catch (err: unknown) {
-        console.warn(`Model ${model} request failed, attempting next:`, err instanceof Error ? err.message : err);
+
+        // Strict edibility normalization
+        if (parsed.isEdible === false) {
+          parsed.isEdible = false;
+          parsed.edibleParts = [];
+          if (parsed.preparation) {
+            parsed.preparation.cookingMethods = [];
+            parsed.preparation.toxicity =
+              parsed.preparation.toxicity === 'none' ? 'warning' : parsed.preparation.toxicity;
+            parsed.preparation.prepMethod =
+              parsed.preparation.prepMethod || '此植物非食用植物 / 具毒性或未明，嚴禁食用';
+          }
+          parsed.nutrition = {
+            calories: 0,
+            protein: 0,
+            carbohydrates: 0,
+            fat: 0,
+            fiber: 0,
+            micronutrients: { calciumMg: 0, ironMg: 0, vitaminCMg: 0, potassiumMg: 0 },
+            nutritionHighlights: ['無法食用', '非食用植物'],
+          };
+        } else {
+          parsed.isEdible = true;
+        }
+
+        res.json({ success: true, data: parsed, source: 'ai', model });
+        return;
       }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      errorLogs.push(`[${model}] ${errMsg}`);
+      console.warn(`Model ${model} request failed:`, errMsg);
     }
   }
 
-  // Graceful fallback to smart botanical knowledge synthesis with complete taxonomy guaranteed
-  const fallbackData = inferBotanicalFallback(cleanName);
-  res.json({ success: true, data: fallbackData, source: 'knowledge_base' });
+  // All models failed; do NOT return mock/fallback data per user request
+  const detailedErrors = errorLogs.join('； ');
+  res.status(502).json({
+    success: false,
+    error: `Gemini AI 模型呼叫失敗：${detailedErrors || '所有候選模型均無回應'}。請檢查 API Key 配額、網路連線或稍後再試。`,
+  });
 });
 
 // Setup Vite middleware in dev or static files in production
