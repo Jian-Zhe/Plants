@@ -9,6 +9,7 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserLocalPersistence,
+  indexedDBLocalPersistence,
   User,
 } from 'firebase/auth';
 import {
@@ -36,10 +37,15 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-// Enforce browserLocalPersistence so auth state survives mobile background tab sleep & reload
-setPersistence(auth, browserLocalPersistence).catch((err) => {
-  console.warn('Set persistence error:', err);
-});
+// Enforce robust local persistence (IndexedDB -> browser local storage)
+// Critical for standalone PWAs and mobile browsers to keep authentication intact
+if (typeof window !== 'undefined') {
+  setPersistence(auth, indexedDBLocalPersistence)
+    .catch(() => setPersistence(auth, browserLocalPersistence))
+    .catch((err) => {
+      console.warn('Set persistence warning:', err);
+    });
+}
 
 export const googleProvider = new GoogleAuthProvider();
 // Force account selection prompt on re-login after logout
@@ -117,14 +123,12 @@ export function isMobileOrPWA(): boolean {
   return isMobileUA || isStandalone;
 }
 
-// User sign in with Google (supports Popup + automatic Redirect fallback for mobile/PWA)
+// User sign in with Google:
+// In Standalone PWA, popup keeps user inside the app and prevents dropping state to an external browser!
+// We only use redirect if forceRedirect is explicitly set or popup is blocked by the browser.
 export async function loginWithGoogle(forceRedirect = false): Promise<User | null> {
-  const isStandalone =
-    typeof window !== 'undefined' &&
-    (window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as unknown as { standalone?: boolean }).standalone === true);
-
-  if (forceRedirect || isStandalone) {
+  // If user explicitly asks for redirect
+  if (forceRedirect) {
     await signInWithRedirect(auth, googleProvider);
     return null;
   }
@@ -133,14 +137,13 @@ export async function loginWithGoogle(forceRedirect = false): Promise<User | nul
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (err: unknown) {
-    // If auth state was already updated in the background during popup flow
     if (auth.currentUser) {
       return auth.currentUser;
     }
     const errorCode = (err as { code?: string })?.code;
-    // If popup was blocked or closed on mobile, fallback to redirect or check current user
-    if (errorCode === 'auth/popup-blocked' || errorCode === 'auth/cancelled-popup-request') {
-      console.warn('Popup blocked, attempting redirect sign-in...');
+    // If popup was blocked by browser or restricted environment, fallback to redirect
+    if (errorCode === 'auth/popup-blocked') {
+      console.warn('Popup blocked by browser, attempting redirect sign-in...');
       await signInWithRedirect(auth, googleProvider);
       return null;
     }
@@ -149,17 +152,36 @@ export async function loginWithGoogle(forceRedirect = false): Promise<User | nul
   }
 }
 
-// Check redirect result on app initialization (for redirect sign-in)
+// Check redirect result on app initialization or when app regains focus from redirect
 export async function handleAuthRedirect(): Promise<User | null> {
   try {
     const result = await getRedirectResult(auth);
     if (result?.user) {
       return result.user;
     }
+    if (auth.currentUser) {
+      return auth.currentUser;
+    }
+    return null;
+  } catch (err: unknown) {
+    // If getRedirectResult throws (e.g. storage partitioning, null state), don't crash
+    console.warn('Redirect check notice:', err);
     return auth.currentUser || null;
+  }
+}
+
+// Helper to actively refresh and check current auth state
+export async function refreshCurrentAuth(): Promise<User | null> {
+  try {
+    if (auth.currentUser) {
+      await auth.currentUser.reload();
+      return auth.currentUser;
+    }
+    const redirectUser = await handleAuthRedirect();
+    return redirectUser || auth.currentUser || null;
   } catch (err) {
-    console.error('Redirect sign-in error:', err);
-    throw err;
+    console.warn('Refresh auth error:', err);
+    return auth.currentUser || null;
   }
 }
 

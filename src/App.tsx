@@ -9,7 +9,7 @@ import {
   syncLocalPlantsToCloud,
   loadDefaultPresets,
 } from './utils/db';
-import { loginWithGoogle, logoutUser, subscribeToAuth, handleAuthRedirect } from './firebase';
+import { loginWithGoogle, logoutUser, subscribeToAuth, handleAuthRedirect, refreshCurrentAuth, auth } from './firebase';
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
 import { PlantCard } from './components/PlantCard';
@@ -84,6 +84,26 @@ export default function App() {
         setIsAuthLoading(false);
       });
 
+    // Standalone PWA & Mobile resume detection:
+    // When returning to the app from external browser or Google sign-in redirect,
+    // the page is resumed from background. Actively re-check auth status!
+    const handleAppResume = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const user = await refreshCurrentAuth();
+          if (user) {
+            setCurrentUser(user);
+            setIsLoginModalOpen(false);
+          }
+        } catch (err) {
+          console.warn('Error refreshing auth on app resume:', err);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleAppResume);
+    window.addEventListener('focus', handleAppResume);
+
     let unsubscribeFirestore: (() => void) | null = null;
 
     const unsubscribeAuth = subscribeToAuth(async (user) => {
@@ -130,6 +150,8 @@ export default function App() {
     });
 
     return () => {
+      document.removeEventListener('visibilitychange', handleAppResume);
+      window.removeEventListener('focus', handleAppResume);
       unsubscribeAuth();
       if (unsubscribeFirestore) {
         unsubscribeFirestore();

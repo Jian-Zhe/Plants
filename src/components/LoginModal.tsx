@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Cloud, Sparkles, ShieldCheck, Smartphone, Monitor, Copy, Check, ExternalLink, AlertTriangle, ArrowRight } from 'lucide-react';
-import { loginWithGoogle, subscribeToAuth, isMobileOrPWA, auth } from '../firebase';
+import { X, Cloud, Sparkles, ShieldCheck, Smartphone, Monitor, Copy, Check, ExternalLink, AlertTriangle, RotateCw } from 'lucide-react';
+import { loginWithGoogle, subscribeToAuth, isMobileOrPWA, refreshCurrentAuth, auth } from '../firebase';
 
 import { User } from 'firebase/auth';
 
@@ -12,12 +12,15 @@ interface Props {
 
 export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingSync, setIsCheckingSync] = useState(false);
   const [errorMessage, setErrorMessage] = useState<{ code?: string; message: string; domain?: string } | null>(null);
   const [copiedDomain, setCopiedDomain] = useState(false);
   const isMobile = isMobileOrPWA();
+  const isStandalone = typeof window !== 'undefined' &&
+    (window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as unknown as { standalone?: boolean }).standalone === true);
 
-  // Actively listen to auth state changes so if Google sign-in completes in popup or redirect tab,
-  // the modal immediately closes and syncs even if the promise didn't resolve directly
+  // Actively listen to auth state changes and app resume (when returning from external Google OAuth)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -36,7 +39,29 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
       }
     });
 
-    return () => unsubscribe();
+    // Check when user resumes or switches back to this app
+    const handleModalResume = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          const user = await refreshCurrentAuth();
+          if (user) {
+            onSuccess(user);
+            onClose();
+          }
+        } catch (err) {
+          console.warn('Modal resume auth check notice:', err);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleModalResume);
+    window.addEventListener('focus', handleModalResume);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', handleModalResume);
+      window.removeEventListener('focus', handleModalResume);
+    };
   }, [isOpen, onClose, onSuccess]);
 
   if (!isOpen) return null;
@@ -74,24 +99,47 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
       } else if (errorObj?.code === 'auth/popup-blocked') {
         setErrorMessage({
           code: 'auth/popup-blocked',
-          message: '手機瀏覽器阻擋了彈出視窗，請點選「手機頁面直接跳轉登入」。',
+          message: '瀏覽器安全機制阻擋了彈出視窗，請點選下方的「頁面跳轉登入」。',
         });
       } else if (errorObj?.code === 'auth/popup-closed-by-user') {
-        // If user closed popup or returned on mobile
         if (!auth.currentUser) {
           setErrorMessage({
             code: 'auth/popup-closed-by-user',
-            message: '登入視窗已關閉。若在手機上選擇帳號後未同步，請使用下方「手機直接跳轉登入」。',
+            message: '登入視窗已關閉。若在手機上選擇帳號後未同步，請使用下方「頁面跳轉登入」或點選「立即同步狀態」。',
           });
         }
       } else {
         setErrorMessage({
           code: errorObj?.code || 'auth/unknown',
-          message: errorObj?.message || '登入失敗，請重試或改用「手機直接跳轉登入」。',
+          message: errorObj?.message || '登入失敗，請重試或改用「頁面跳轉登入」。',
         });
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleManualCheck = async () => {
+    setIsCheckingSync(true);
+    setErrorMessage(null);
+    try {
+      const user = await refreshCurrentAuth();
+      if (user) {
+        onSuccess(user);
+        onClose();
+        return;
+      }
+      setErrorMessage({
+        message: '尚未偵測到已登入的 Google 帳號。若您剛剛在瀏覽器分頁登入，請確認是否已授權完成，或直接點選上方「Google 一鍵登入」。',
+      });
+    } catch (err) {
+      console.warn('Manual check error:', err);
+      if (auth.currentUser) {
+        onSuccess(auth.currentUser);
+        onClose();
+      }
+    } finally {
+      setIsCheckingSync(false);
     }
   };
 
@@ -178,54 +226,43 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
 
           {/* Action Buttons */}
           <div className="space-y-2.5 pt-2">
-            {isMobile ? (
-              <>
-                {/* Mobile Primary: Direct Redirect */}
-                <button
-                  onClick={() => handleSignIn(true)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-semibold text-sm transition shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50"
-                >
-                  <Smartphone className="w-4 h-4 text-emerald-200" />
-                  <span>{isLoading ? '前往 Google 驗證中...' : '手機一鍵直接跳轉登入 (推薦)'}</span>
-                </button>
+            {/* Primary Action: Popup Sign In (Default & Best for both PWA standalone and Desktop) */}
+            <button
+              onClick={() => handleSignIn(false)}
+              disabled={isLoading || isCheckingSync}
+              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-semibold text-sm transition shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              <span>{isLoading ? '登入驗證中...' : '使用 Google 一鍵登入 (APP免跳出 · 推薦)'}</span>
+            </button>
 
-                {/* Mobile Secondary: Popup */}
-                <button
-                  onClick={() => handleSignIn(false)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 active:scale-98 border border-stone-700 text-stone-300 text-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span>改用彈出新視窗登入</span>
-                </button>
-                <p className="text-[11px] text-amber-300/80 text-center">
-                  💡 手機若曾登出，推薦使用「直接跳轉登入」避免瀏覽器切換分頁時遺失連線
-                </p>
-              </>
-            ) : (
-              <>
-                {/* Desktop Primary: Popup */}
-                <button
-                  onClick={() => handleSignIn(false)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-semibold text-sm transition shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50"
-                >
-                  <Monitor className="w-4 h-4" />
-                  <span>{isLoading ? '登入處理中...' : '使用 Google 帳號登入 (彈出視窗)'}</span>
-                </button>
+            {/* Manual Check / Sync Button (Essential for recovering from external redirect jump-back) */}
+            <button
+              onClick={handleManualCheck}
+              disabled={isLoading || isCheckingSync}
+              className="w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 active:scale-98 border border-amber-600/50 text-amber-200 text-xs font-medium transition cursor-pointer disabled:opacity-50"
+            >
+              <RotateCw className={`w-3.5 h-3.5 text-amber-400 ${isCheckingSync ? 'animate-spin' : ''}`} />
+              <span>{isCheckingSync ? '正在檢查雲端登入狀態...' : '剛從外開瀏覽器跳轉返回？點此檢查同步'}</span>
+            </button>
 
-                {/* Desktop Secondary: Redirect */}
-                <button
-                  onClick={() => handleSignIn(true)}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 active:scale-98 border border-stone-700 hover:border-emerald-500/50 text-stone-200 text-xs transition cursor-pointer disabled:opacity-50"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-                  <span>頁面直接跳轉登入 (如彈出視窗遭阻擋)</span>
-                </button>
-              </>
-            )}
+            {/* Secondary Action: Fallback Redirect */}
+            <button
+              onClick={() => handleSignIn(true)}
+              disabled={isLoading || isCheckingSync}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 active:scale-98 border border-stone-700 text-stone-300 text-xs transition cursor-pointer disabled:opacity-50"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+              <span>改用頁面直接跳轉登入 (若彈出視窗受阻)</span>
+            </button>
+
+            <div className="p-2.5 rounded-xl bg-stone-950 border border-stone-800 text-[11px] text-stone-400 space-y-1">
+              <p className="text-stone-300 font-medium">📱 下載安裝為 APP (PWA) 使用須知：</p>
+              <p className="leading-relaxed">
+                • 建議優先使用 <strong className="text-emerald-300">「Google 一鍵登入」</strong>，可直接在 APP 內完成驗證，免跳轉離開。<br />
+                • 若曾跳轉至 Chrome / Safari 登入，返回本 APP 時系統會自動偵測；若未自動切換，請點選上方 <strong className="text-amber-300">「剛從外開瀏覽器跳轉返回？點此檢查同步」</strong> 即可立即載入。
+              </p>
+            </div>
           </div>
         </div>
 
