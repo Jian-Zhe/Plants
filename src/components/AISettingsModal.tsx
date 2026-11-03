@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Key, Check, Cpu, Zap, ShieldCheck, Info } from 'lucide-react';
 import { getStoredApiKey, setStoredApiKey, getStoredModel, setStoredModel, AVAILABLE_MODELS } from '../utils/gemini';
+import { syncUserSettingsToCloud } from '../utils/userSettings';
+import { notifyModalClosed, registerModalOpen } from '../utils/modalGuard';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  userUid?: string | null;
 }
 
-export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
+export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose, userUid }) => {
   const [keyInput, setKeyInput] = useState(() => getStoredApiKey());
   const [modelInput, setModelInput] = useState(() => getStoredModel());
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -23,11 +26,15 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   // Close on Escape key press
   React.useEffect(() => {
     if (!isOpen) return;
+    const unregisterModal = registerModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      unregisterModal();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -35,11 +42,17 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const handleSelectModel = (id: string) => {
     setModelInput(id);
     setStoredModel(id); // Auto-save immediately to localStorage
+    if (userUid) {
+      syncUserSettingsToCloud(userUid, keyInput, id);
+    }
   };
 
   const handleSave = () => {
     setStoredApiKey(keyInput);
     setStoredModel(modelInput);
+    if (userUid) {
+      syncUserSettingsToCloud(userUid, keyInput, modelInput);
+    }
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -49,18 +62,17 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          e.preventDefault();
-          e.stopPropagation();
+          notifyModalClosed();
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative"
+        className="relative z-10 w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto"
       >
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-800 bg-stone-900/95 shrink-0">
           <div className="flex items-center gap-3">
@@ -152,10 +164,21 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
           {/* API Key Input */}
           <div className="pt-2 border-t border-stone-800">
-            <label className="block text-xs font-semibold text-stone-200 mb-1.5 flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-amber-400" />
-              <span>Gemini API Key (保存在您的本機瀏覽器)</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-stone-200 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span>Gemini API Key</span>
+              </label>
+              {userUid ? (
+                <span className="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-700/60 px-2 py-0.5 rounded-full font-medium">
+                  ☁️ 已連結 Firebase 帳號跨裝置同步
+                </span>
+              ) : (
+                <span className="text-[10px] text-stone-400 bg-stone-800 border border-stone-700 px-2 py-0.5 rounded-full">
+                  本機儲存 (登入後可同步至雲端)
+                </span>
+              )}
+            </div>
             <input
               type="password"
               placeholder="AIzaSy..."
@@ -163,15 +186,15 @@ export const AISettingsModal: React.FC<Props> = ({ isOpen, onClose }) => {
               onChange={(e) => setKeyInput(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-stone-950 border border-stone-700 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-emerald-500 font-mono text-xs"
             />
-            <p className="text-[11px] text-stone-500 mt-1">
-              可在 Google AI Studio 免費取得 API Key 填入即可使用。
+            <p className="text-[11px] text-stone-500 mt-1 leading-relaxed">
+              可在 Google AI Studio 免費取得 API Key 填入。{userUid ? '已儲存至您的 Firebase 帳號，切換手機或電腦均可直接使用！' : '登入 Google 帳號後將自動備份至雲端，多裝置免重複輸入。'}
             </p>
           </div>
 
           {savedSuccess && (
-            <div className="p-3 bg-emerald-950/80 border border-emerald-600 rounded-xl flex items-center gap-2 text-emerald-300 text-xs">
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>設定已成功儲存！下次 AI 查詢將優先使用您所選取的模型。</span>
+            <div className="p-3 bg-emerald-950/80 border border-emerald-600 rounded-xl flex items-center gap-2 text-emerald-300 text-xs animate-in fade-in duration-150">
+              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>設定已成功儲存{userUid ? '並同步至雲端帳號' : ''}！下次 AI 查詢將優先使用您選取的模型與 Key。</span>
             </div>
           )}
         </div>

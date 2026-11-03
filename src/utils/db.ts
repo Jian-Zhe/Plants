@@ -72,7 +72,6 @@ function saveLocalPlants(plants: PlantItem[]) {
 export async function getAllPlants(): Promise<PlantItem[]> {
   try {
     const idb = await openDB();
-    const hasPurgedPresets = typeof window !== 'undefined' ? localStorage.getItem(PRESETS_CLEARED_FLAG) : 'true';
 
     return new Promise((resolve) => {
       const tx = idb.transaction(STORE_NAME, 'readwrite');
@@ -80,32 +79,32 @@ export async function getAllPlants(): Promise<PlantItem[]> {
       const req = store.getAll();
 
       req.onsuccess = async () => {
-        let list = (req.result as PlantItem[]) || [];
+        const rawList = (req.result as PlantItem[]) || [];
+        const cleanList: PlantItem[] = [];
 
-        // If user requested to delete presets or on first load with presets
-        if (!hasPurgedPresets) {
-          const userOnly = list.filter((p) => !p.id.startsWith('preset-'));
-          for (const item of list) {
-            if (item.id.startsWith('preset-')) {
+        for (const item of rawList) {
+          if (!item || !item.id || item.id.startsWith('preset-')) {
+            if (item && item.id) {
               store.delete(item.id);
             }
+          } else {
+            cleanList.push(item);
           }
-          saveLocalPlants(userOnly);
-          localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
-          list = userOnly;
         }
 
-        resolve(list);
+        saveLocalPlants(cleanList);
+        localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
+        resolve(cleanList);
       };
 
       req.onerror = () => {
-        const fallback = getLocalPlants().filter((p) => !p.id.startsWith('preset-'));
+        const fallback = getLocalPlants().filter((p) => p && p.id && !p.id.startsWith('preset-'));
         resolve(fallback);
       };
     });
   } catch (err) {
     console.warn('IndexedDB unavailable, falling back to LocalStorage', err);
-    const fallback = getLocalPlants().filter((p) => !p.id.startsWith('preset-'));
+    const fallback = getLocalPlants().filter((p) => p && p.id && !p.id.startsWith('preset-'));
     return fallback;
   }
 }
@@ -212,58 +211,44 @@ export function subscribeToCloudPlants(
     plantsCol,
     async (snapshot) => {
       const cloudPlants: PlantItem[] = [];
+      const presetDocsToDelete: string[] = [];
+
       snapshot.forEach((d) => {
-        cloudPlants.push(d.data() as PlantItem);
+        const p = d.data() as PlantItem;
+        if (d.id.startsWith('preset-') || (p && p.id && p.id.startsWith('preset-'))) {
+          presetDocsToDelete.push(d.id);
+        } else if (p && p.name) {
+          cloudPlants.push(p);
+        }
       });
 
-      // Update local storage/IndexedDB cache, respecting local offline newer updates
+      // Auto-purge any lingering preset docs from Firestore so they disappear forever
+      if (presetDocsToDelete.length > 0) {
+        try {
+          const deleteBatch = writeBatch(db);
+          for (const pid of presetDocsToDelete) {
+            deleteBatch.delete(doc(db, 'users', userUid, 'plants', pid));
+          }
+          deleteBatch.commit().catch(console.warn);
+        } catch (err) {
+          console.warn('Auto-purge preset error:', err);
+        }
+      }
+
+      // Update local storage/IndexedDB cache to strictly mirror user's cloud database (purging ghost records)
       try {
         const idb = await openDB();
         const tx = idb.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
-        const localReq = store.getAll();
 
-        localReq.onsuccess = () => {
-          const localList = (localReq.result as PlantItem[]) || [];
-          const localMap = new Map(localList.map((p) => [p.id, p]));
-          const localByName = new Map(localList.map((p) => [p.name?.trim().toLowerCase(), p]));
+        // Clear local storage of stale/deleted items that do not exist in the database
+        store.clear();
+        for (const cp of cloudPlants) {
+          store.put(cp);
+        }
 
-          const finalMerged: PlantItem[] = [];
-          const processedLocalIds = new Set<string>();
-
-          for (const cp of cloudPlants) {
-            const lp = localMap.get(cp.id) || localByName.get(cp.name?.trim().toLowerCase());
-            if (lp) {
-              processedLocalIds.add(lp.id);
-              const localTime = new Date(lp.updatedAt || lp.createdAt || 0).getTime();
-              const cloudTime = new Date(cp.updatedAt || cp.createdAt || 0).getTime();
-
-              // If local update is newer than cloud (edited offline), keep local version until sync uploads it!
-              if (localTime > cloudTime) {
-                finalMerged.push(lp);
-                store.put(lp);
-                continue;
-              }
-            }
-            finalMerged.push(cp);
-            store.put(cp);
-          }
-
-          // Retain any offline plants created that haven't been pushed to the cloud yet
-          for (const lp of localList) {
-            if (!processedLocalIds.has(lp.id)) {
-              finalMerged.push(lp);
-            }
-          }
-
-          saveLocalPlants(finalMerged);
-          onUpdate(finalMerged);
-        };
-
-        localReq.onerror = () => {
-          saveLocalPlants(cloudPlants);
-          onUpdate(cloudPlants);
-        };
+        saveLocalPlants(cloudPlants);
+        onUpdate(cloudPlants);
       } catch (e) {
         console.warn('Failed caching cloud plants into IDB:', e);
         saveLocalPlants(cloudPlants);
@@ -285,8 +270,13 @@ export async function syncLocalPlantsToCloud(userUid: string, localPlants: Plant
     const cloudDocs = existingSnap.docs;
     const cloudById = new Map<string, PlantItem>();
     const cloudByName = new Map<string, { id: string; plant: PlantItem }>();
+    const presetDocsToDelete: string[] = [];
 
     for (const d of cloudDocs) {
+      if (d.id.startsWith('preset-')) {
+        presetDocsToDelete.push(d.id);
+        continue;
+      }
       const p = d.data() as PlantItem;
       cloudById.set(d.id, p);
       if (p.name) {
@@ -294,11 +284,23 @@ export async function syncLocalPlantsToCloud(userUid: string, localPlants: Plant
       }
     }
 
+    // Clean any old preset docs from cloud
+    if (presetDocsToDelete.length > 0) {
+      const deleteBatch = writeBatch(db);
+      for (const pid of presetDocsToDelete) {
+        deleteBatch.delete(doc(db, 'users', userUid, 'plants', pid));
+      }
+      await deleteBatch.commit().catch(console.warn);
+    }
+
     let syncedCount = 0;
     const batch = writeBatch(db);
 
     for (const plant of localPlants) {
       if (!plant.name) continue;
+      // NEVER sync preset plants to cloud!
+      if (plant.id.startsWith('preset-')) continue;
+
       const cleanName = plant.name.trim().toLowerCase();
       const matchById = cloudById.get(plant.id);
       const matchByName = cloudByName.get(cleanName);
@@ -306,15 +308,18 @@ export async function syncLocalPlantsToCloud(userUid: string, localPlants: Plant
       const targetDocId = matchById ? plant.id : matchByName ? matchByName.id : plant.id;
 
       if (!cloudMatch) {
-        // Brand new local plant created offline: upload to cloud
-        const docRef = doc(db, 'users', userUid, 'plants', targetDocId);
-        batch.set(docRef, stripUndefined({
-          ...plant,
-          id: targetDocId,
-          userId: userUid,
-          updatedAt: plant.updatedAt || new Date().toISOString(),
-        }));
-        syncedCount++;
+        // ONLY if the cloud database is completely empty (first-time onboarding), upload local plants.
+        // If the user already has plants in cloud, un-matched local items are stale/deleted ghosts from previous sessions.
+        if (cloudDocs.length === 0) {
+          const docRef = doc(db, 'users', userUid, 'plants', targetDocId);
+          batch.set(docRef, stripUndefined({
+            ...plant,
+            id: targetDocId,
+            userId: userUid,
+            updatedAt: plant.updatedAt || new Date().toISOString(),
+          }));
+          syncedCount++;
+        }
       } else {
         // Plant exists: compare timestamps
         const localTime = new Date(plant.updatedAt || plant.createdAt || 0).getTime();
@@ -342,6 +347,68 @@ export async function syncLocalPlantsToCloud(userUid: string, localPlants: Plant
     console.error('Error syncing local plants to cloud:', err);
     return 0;
   }
+}
+
+// Purge local cache and force re-fetch exclusively from cloud (one-click fix for stale/ghost data)
+export async function purgeLocalCacheAndResyncCloud(userUid?: string | null): Promise<PlantItem[]> {
+  try {
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.clear();
+  } catch (err) {
+    console.warn('IDB clear error:', err);
+  }
+
+  localStorage.removeItem(LOCAL_STORAGE_BACKUP_KEY);
+  localStorage.setItem(PRESETS_CLEARED_FLAG, 'true');
+
+  if (!userUid) {
+    return [];
+  }
+
+  // Fetch directly and exclusively from Firebase Firestore
+  const snap = await getDocs(collection(db, 'users', userUid, 'plants'));
+  const cloudPlants: PlantItem[] = [];
+  const presetDocsToDelete: string[] = [];
+
+  snap.forEach((d) => {
+    if (d.id.startsWith('preset-')) {
+      presetDocsToDelete.push(d.id);
+    } else {
+      const p = d.data() as PlantItem;
+      if (p && p.name) {
+        cloudPlants.push(p);
+      }
+    }
+  });
+
+  if (presetDocsToDelete.length > 0) {
+    try {
+      const deleteBatch = writeBatch(db);
+      for (const pid of presetDocsToDelete) {
+        deleteBatch.delete(doc(db, 'users', userUid, 'plants', pid));
+      }
+      await deleteBatch.commit();
+    } catch (err) {
+      console.warn('Failed deleting presets during resync:', err);
+    }
+  }
+
+  // Save fresh cloud plants into IDB
+  try {
+    const idb = await openDB();
+    const tx = idb.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    for (const p of cloudPlants) {
+      store.put(p);
+    }
+  } catch (err) {
+    console.warn('IDB write error during resync:', err);
+  }
+
+  saveLocalPlants(cloudPlants);
+  return cloudPlants;
 }
 
 // Clear all plants completely

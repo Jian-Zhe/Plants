@@ -62,7 +62,7 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
    - "preparation" 中：cookingMethods 必須為空陣列 []，toxicity 設為 'warning' 或 'toxic_raw'，toxicityNotes 必須清楚載明毒性部位、毒素成分與中毒危險性，prepMethod 註明不可食用
    - "nutrition" 中：熱量、蛋白質、碳水、脂肪、纖維全為 0，nutritionHighlights 填入 ["無法食用", "非食用植物"]
 3. 【若為可食用植物 (isEdible: true)】：
-   - 料理手法必須是「野外求生/叢林技能 (Bushcraft & Wilderness Survival)」風格（例如：葉蛋白萃取(LPC)、乳酸野外自然發酵、草木灰水鹼浸脫毒、流水長時浸洗脫苦、反覆換水沸煮脫澀、石板野火烙炙、竹筒填塞炭火煨熟、坑式地爐燜烤等），【嚴禁】出現家常炒菜（如「蒜炒」、「煮蛋花湯」）。
+   - 料理與加工手法 "cookingMethods" 必須從以下求生技能選項中挑選 1~3 個適用者：["乳酸發酵", "葉蛋白萃取", "反覆煮沸", "流水浸洗", "低溫熬煮", "悶烤"]（【嚴禁】出現家常炒菜如「蒜炒」、「煮蛋花湯」）。
    - 詳加分析抗營養物質 (如草酸、植酸、單寧、生物鹼、皂苷、草酸鈣針晶) 與去除手法。
    - 估計物種專屬之熱量與營養數值。
 
@@ -84,7 +84,7 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
   },
   "preparation": {
     "prepMethod": "求生前置清洗與脫毒處理步驟（不可食則註記不可食用）",
-    "cookingMethods": ["葉蛋白萃取 (LPC)", "反覆換水沸煮脫澀"],
+    "cookingMethods": ["葉蛋白萃取", "反覆煮沸"],
     "toxicity": "none",
     "toxicityNotes": "毒性與安全警語 (若不可食請清楚說明中毒理與風險)",
     "antinutrients": "主要抗營養物質或毒素成分",
@@ -208,13 +208,12 @@ async function startServer() {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   } else {
-    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: isHmrDisabled ? false : { server: httpServer },
-        watch: isHmrDisabled ? null : {},
+        hmr: false,
+        watch: null,
       },
       appType: 'spa',
     });

@@ -50,6 +50,11 @@ service cloud.firestore {
         allow update: if isOwner(userId) && isValidId(plantId) && isValidPlant(incoming()) && incoming().userId == existing().userId;
         allow delete: if isOwner(userId) && isValidId(plantId);
       }
+
+      // User's private configuration & settings (e.g. Gemini API key & preferred model)
+      match /settings/{settingId} {
+        allow get, list, create, update, delete: if isOwner(userId) && isValidId(settingId);
+      }
     }
   }
 }

@@ -7,7 +7,6 @@ import {
   deletePlant,
   subscribeToCloudPlants,
   syncLocalPlantsToCloud,
-  loadDefaultPresets,
 } from './utils/db';
 import { loginWithGoogle, logoutUser, subscribeToAuth, handleAuthRedirect, refreshCurrentAuth, auth } from './firebase';
 import { Navbar } from './components/Navbar';
@@ -16,10 +15,11 @@ import { PlantCard } from './components/PlantCard';
 import { PlantDetailModal } from './components/PlantDetailModal';
 import { PlantFormModal } from './components/PlantFormModal';
 import { BackupModal } from './components/BackupModal';
-import { GitHubPagesGuideModal } from './components/GitHubPagesGuideModal';
+import { LearningModal } from './components/LearningModal';
 import { AISettingsModal } from './components/AISettingsModal';
 import { LoginModal } from './components/LoginModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { loadUserSettingsFromCloud } from './utils/userSettings';
 import {
   Sprout,
   Plus,
@@ -47,7 +47,7 @@ export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPlant, setEditingPlant] = useState<PlantItem | null>(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const [isGithubGuideOpen, setIsGithubGuideOpen] = useState(false);
+  const [isLearningOpen, setIsLearningOpen] = useState(false);
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnlyFavorites, setIsOnlyFavorites] = useState(false);
@@ -111,6 +111,8 @@ export default function App() {
       setIsAuthLoading(false);
       if (user) {
         setIsLoginModalOpen(false);
+        // Sync Gemini API Key and Model choice from Firebase Cloud
+        loadUserSettingsFromCloud(user.uid);
       }
 
       if (unsubscribeFirestore) {
@@ -326,7 +328,7 @@ export default function App() {
     <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white pb-24 sm:pb-12">
       {/* Top Navbar */}
       <Navbar
-        onOpenGithubGuide={() => setIsGithubGuideOpen(true)}
+        onOpenLearningMode={() => setIsLearningOpen(true)}
         onOpenBackup={() => setIsBackupOpen(true)}
         onOpenAiSettings={() => setIsAiSettingsOpen(true)}
         isOnlyFavorites={isOnlyFavorites}
@@ -365,7 +367,7 @@ export default function App() {
             <div className="space-y-1.5">
               <h3 className="text-lg font-bold text-white">目前尚無植物紀錄</h3>
               <p className="text-xs text-stone-400 max-w-md mx-auto leading-relaxed">
-                預設植物已清空。您可以立即手動新增您在野外採集或園藝栽培認識的植物，並可隨時使用內建範本或 AI 智能快速填寫！
+                您可以立即新增您在野外採集或園藝栽培認識的植物，並可使用 AI 智能辨識與快速填寫！
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
@@ -378,17 +380,6 @@ export default function App() {
               >
                 <Plus className="w-4 h-4" />
                 <span>新增第一株植物</span>
-              </button>
-
-              <button
-                onClick={async () => {
-                  const restored = await loadDefaultPresets(currentUser?.uid);
-                  setPlants(restored);
-                }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs text-stone-300 transition cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>載入 18 種經典野外植物範本</span>
               </button>
             </div>
           </div>
@@ -508,14 +499,16 @@ export default function App() {
         userUid={currentUser?.uid}
       />
 
-      <GitHubPagesGuideModal
-        isOpen={isGithubGuideOpen}
-        onClose={() => setIsGithubGuideOpen(false)}
+      <LearningModal
+        isOpen={isLearningOpen}
+        onClose={() => setIsLearningOpen(false)}
+        plants={plants}
       />
 
       <AISettingsModal
         isOpen={isAiSettingsOpen}
         onClose={() => setIsAiSettingsOpen(false)}
+        userUid={currentUser?.uid}
       />
 
       <LoginModal

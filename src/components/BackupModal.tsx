@@ -1,15 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Download, Upload, Trash2, CheckCircle, AlertTriangle, FileText, Sparkles, Wand2 } from 'lucide-react';
+import { X, Download, Upload, Trash2, CheckCircle, AlertTriangle, FileText, Sparkles, Wand2, RotateCw } from 'lucide-react';
 import {
   exportPlantsJSON,
   importPlantsJSON,
   deduplicateAllPlants,
-  clearAllPlants,
-  loadDefaultPresets,
   deletePresetPlantsOnly,
   getAllPlants,
+  purgeLocalCacheAndResyncCloud,
 } from '../utils/db';
 import { PlantItem } from '../types/plant';
+import { notifyModalClosed, registerModalOpen } from '../utils/modalGuard';
 
 interface Props {
   isOpen: boolean;
@@ -26,11 +26,15 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
 
   useEffect(() => {
     if (!isOpen) return;
+    const unregisterModal = registerModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      unregisterModal();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -114,29 +118,20 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
     }
   };
 
-  const handleClearAll = async () => {
-    if (!window.confirm('確定要清空所有植物資料嗎？此操作將清空目前所有紀錄。')) return;
+  const handleForceResync = async () => {
     setIsProcessing(true);
+    setStatusMessage(null);
     try {
-      await clearAllPlants(userUid);
-      onDataChanged([]);
-      setStatusMessage({ type: 'success', text: '已清空所有植物紀錄！' });
+      const freshPlants = await purgeLocalCacheAndResyncCloud(userUid);
+      onDataChanged(freshPlants);
+      setStatusMessage({
+        type: 'success',
+        text: userUid
+          ? `清理完成！已抹除本機殘留快取，並從雲端資料庫重新同步 ${freshPlants.length} 筆最新植物。`
+          : '本機快取已清空重整！',
+      });
     } catch (err) {
-      setStatusMessage({ type: 'error', text: '清空失敗：' + String(err) });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleLoadDefaults = async () => {
-    if (!window.confirm('確定要將 18 種經典百科植物載入至您的圖鑑嗎？')) return;
-    setIsProcessing(true);
-    try {
-      const restored = await loadDefaultPresets(userUid);
-      onDataChanged(restored);
-      setStatusMessage({ type: 'success', text: '已載入 18 種植物範本！' });
-    } catch (err) {
-      setStatusMessage({ type: 'error', text: '載入失敗：' + String(err) });
+      setStatusMessage({ type: 'error', text: '重新整理快取失敗：' + String(err) });
     } finally {
       setIsProcessing(false);
     }
@@ -144,18 +139,17 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          e.preventDefault();
-          e.stopPropagation();
+          notifyModalClosed();
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative"
+        className="relative z-10 w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto"
       >
         {/* Header (pinned to top) */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-800 bg-stone-900/95 shrink-0">
@@ -258,42 +252,29 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
               </button>
             </div>
 
-            <div className="flex items-center justify-between">
+            {/* Force Resync / Purge Cache */}
+            <div className="flex items-center justify-between pt-2 border-t border-stone-800/60">
               <div>
-                <div className="text-xs font-semibold text-stone-300">清空全部植物</div>
-                <p className="text-[11px] text-stone-500">清除目前所有植物紀錄，建立完全空白的筆記</p>
+                <div className="text-xs font-semibold text-emerald-300">重整快取並以雲端為準</div>
+                <p className="text-[11px] text-stone-500">清除本機殘留快取或已刪除舊資料，強制重新拉取雲端</p>
               </div>
               <button
-                onClick={handleClearAll}
+                onClick={handleForceResync}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-700/70 rounded-lg transition cursor-pointer disabled:opacity-50"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>清空圖鑑</span>
+                <RotateCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+                <span>重整雲端同步</span>
               </button>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs font-semibold text-stone-300">載入 18 種經典植物範本</div>
-                <p className="text-[11px] text-stone-500">將龍葵、咸豐草、馬齒莧等經典資料加入圖鑑</p>
-              </div>
-              <button
-                onClick={handleLoadDefaults}
-                disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-300 hover:text-white bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/60 rounded-lg transition"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>載入範本</span>
-              </button>
-            </div>
           </div>
         </div>
 
         <div className="px-6 py-3.5 border-t border-stone-800 bg-stone-950/70 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium text-stone-300 transition"
+            className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-medium text-stone-300 transition cursor-pointer"
           >
             關閉
           </button>

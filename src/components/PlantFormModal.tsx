@@ -8,6 +8,7 @@ import {
   PlantImage,
 } from '../types/plant';
 import { generatePlantDetailsWithAI, AutofillResult } from '../utils/gemini';
+import { notifyModalClosed, registerModalOpen } from '../utils/modalGuard';
 import {
   X,
   Sparkles,
@@ -224,11 +225,15 @@ export const PlantFormModal: React.FC<Props> = ({
   // Close on Escape key press
   useEffect(() => {
     if (!isOpen) return;
+    const unregisterModal = registerModalOpen();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      unregisterModal();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen, onClose]);
 
   const resetForm = () => {
@@ -599,18 +604,17 @@ export const PlantFormModal: React.FC<Props> = ({
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-md"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          e.preventDefault();
-          e.stopPropagation();
+          notifyModalClosed();
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 overflow-hidden my-auto"
+        className="relative z-10 w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 overflow-hidden my-auto"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-800 bg-stone-900/95 sticky top-0 z-20 backdrop-blur-md">

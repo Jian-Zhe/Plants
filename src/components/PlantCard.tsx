@@ -2,6 +2,8 @@ import React from 'react';
 import { PlantItem, ToxicityLevel } from '../types/plant';
 import { Star, Flame, Zap, Mountain, AlertCircle, ShieldCheck, Heart, Edit3, Trash2, Sprout, Ban } from 'lucide-react';
 
+import { isAnyModalActive } from '../utils/modalGuard';
+
 interface Props {
   plant: PlantItem;
   onSelect: (plant: PlantItem) => void;
@@ -18,6 +20,16 @@ export const PlantCard: React.FC<Props> = ({
   onToggleFavorite,
 }) => {
   const coverImage = plant.images.find((img) => img.isCover)?.dataUrl || plant.images[0]?.dataUrl;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // If any modal is currently open or was dismissed in the last 600ms, swallow the ghost click completely
+    if (isAnyModalActive()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onSelect(plant);
+  };
 
   const renderToxicityBadge = (level: ToxicityLevel) => {
     switch (level) {
@@ -56,7 +68,7 @@ export const PlantCard: React.FC<Props> = ({
 
   return (
     <div
-      onClick={() => onSelect(plant)}
+      onClick={handleCardClick}
       className="group relative flex flex-col rounded-2xl bg-stone-900 border border-stone-800/90 hover:border-emerald-600/60 transition-all duration-300 overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-emerald-950/20 cursor-pointer text-stone-200"
     >
       {/* Image Container */}

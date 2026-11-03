@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Cloud, Sparkles, ShieldCheck, Smartphone, Monitor, Copy, Check, ExternalLink, AlertTriangle, RotateCw } from 'lucide-react';
 import { loginWithGoogle, subscribeToAuth, isMobileOrPWA, refreshCurrentAuth, auth } from '../firebase';
+import { notifyModalClosed, registerModalOpen } from '../utils/modalGuard';
 
 import { User } from 'firebase/auth';
 
@@ -23,12 +24,13 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   // Actively listen to auth state changes and app resume (when returning from external Google OAuth)
   useEffect(() => {
     if (!isOpen) return;
+    const unregisterModal = registerModalOpen();
 
     // Check immediately if already logged in
     if (auth.currentUser) {
       onSuccess(auth.currentUser);
       onClose();
-      return;
+      return unregisterModal;
     }
 
     const unsubscribe = subscribeToAuth((user) => {
@@ -63,6 +65,7 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      unregisterModal();
       unsubscribe();
       document.removeEventListener('visibilitychange', handleModalResume);
       window.removeEventListener('focus', handleModalResume);
@@ -159,18 +162,17 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto bg-black/85 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          e.preventDefault();
-          e.stopPropagation();
+          notifyModalClosed();
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative"
+        className="relative z-10 w-full max-w-md rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto animate-in zoom-in-95 duration-150"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-800 bg-stone-900/95 shrink-0">
