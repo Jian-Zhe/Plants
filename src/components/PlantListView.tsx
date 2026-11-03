@@ -73,12 +73,6 @@ export const PlantListView: React.FC<Props> = ({
 
   return (
     <div className="space-y-3">
-      {/* Subtitle summary bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-stone-900/60 border border-stone-800/80 rounded-xl text-xs text-stone-400">
-        <span>📋 列點模式速覽（共 {plants.length} 筆紀錄）</span>
-        <span className="text-[11px] text-stone-500 hidden sm:inline">點擊任何植物條目可開啟完整檔案</span>
-      </div>
-
       {/* List Container */}
       <div className="bg-stone-900 border border-stone-800 rounded-2xl divide-y divide-stone-800/80 shadow-lg overflow-hidden">
         {plants.map((plant, index) => {
