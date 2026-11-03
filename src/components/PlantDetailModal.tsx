@@ -41,6 +41,15 @@ export const PlantDetailModal: React.FC<Props> = ({
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [copiedShare, setCopiedShare] = useState(false);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !plant) return null;
 
   const currentImage = plant.images[activeImageIndex] || plant.images[0];
@@ -106,8 +115,20 @@ export const PlantDetailModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-stone-900 border border-stone-700/80 shadow-2xl text-stone-100 overflow-hidden my-auto">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl max-h-[92vh] flex flex-col rounded-3xl bg-stone-900 border border-stone-700/80 shadow-2xl text-stone-100 overflow-hidden my-auto"
+      >
         {/* Sticky Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 border-b border-stone-800 bg-stone-900/95 sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center gap-2">

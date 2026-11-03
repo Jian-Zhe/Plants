@@ -123,10 +123,9 @@ app.post('/api/gemini/generate', async (req: Request, res: Response) => {
 - abundance 只能是 'abundant', 'common', 'occasional', 'rare' 之一`;
 
   const allSubTierModels = [
-    'gemini-3.1-flash-lite',
     'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
     'gemini-flash-latest',
-    'gemini-2.5-flash',
   ];
 
   let candidateModels: string[];

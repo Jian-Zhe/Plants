@@ -4,17 +4,17 @@ import { inferBotanicalFallback, normalizeBotanicalFamily } from '../data/botani
 
 export const AVAILABLE_MODELS = [
   {
-    id: 'gemini-3.1-flash-lite',
-    name: 'Gemini 3.1 Flash Lite',
-    tag: '極省額度 · 推薦首選',
-    desc: 'Google 最新超輕量模型，配額限制最寬鬆、Token 消耗最少，專為高頻率查詢設計，最不易耗盡。',
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
+    tag: '輕量省額度 · 穩定推薦',
+    desc: '極佳相容性與低延遲，配額充裕、Token 消耗少，能徹底解決高階模型配額耗盡問題。',
     isRecommended: true,
   },
   {
-    id: 'gemini-2.5-flash-lite',
-    name: 'Gemini 2.5 Flash Lite',
-    tag: '輕量次級款 · 備援',
-    desc: '極低延遲的次級輕量模型，額度消耗極低，當首選模型暫時繁忙時可無縫替補。',
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite',
+    tag: '最新超輕量 · 推薦',
+    desc: 'Google 最新超輕量模型，配額限制最寬鬆，專為高頻率查詢設計。',
     isRecommended: false,
   },
   {
@@ -24,25 +24,18 @@ export const AVAILABLE_MODELS = [
     desc: '標準 Flash 模型，兼具回答速度與細緻度，穩定支援各種 Google AI 帳號。',
     isRecommended: false,
   },
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    tag: '經典快速款 · 備援',
-    desc: '經典高速 Flash 模型，具備豐富植物認知能力，額度消耗適中，可作為可靠的備用選項。',
-    isRecommended: false,
-  },
 ] as const;
 
 export function getStoredModel(): string {
   if (typeof window !== 'undefined') {
     const val = localStorage.getItem('botanica_user_gemini_model');
-    // If user previously stored the now-removed high-tier model, automatically migrate to 3.1-flash-lite
-    if (!val || val === 'gemini-3.8-flash') {
-      return 'gemini-3.1-flash-lite';
+    // If user previously stored removed models, migrate to 2.5-flash-lite
+    if (!val || val === 'gemini-3.8-flash' || val === 'gemini-2.5-flash') {
+      return 'gemini-2.5-flash-lite';
     }
     return val;
   }
-  return 'gemini-3.1-flash-lite';
+  return 'gemini-2.5-flash-lite';
 }
 
 export function setStoredModel(model: string): void {
@@ -264,10 +257,9 @@ async function callGeminiDirectFast(
   // Prioritize the user's selected sub-tier model; if it temporarily has no response,
   // seamlessly fall back to other lightweight sub-tier models to guarantee high availability.
   const allSubTierModels = [
-    'gemini-3.1-flash-lite',
     'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
     'gemini-flash-latest',
-    'gemini-2.5-flash',
   ];
 
   let candidateModels: string[];

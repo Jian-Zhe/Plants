@@ -57,10 +57,16 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
     document.addEventListener('visibilitychange', handleModalResume);
     window.addEventListener('focus', handleModalResume);
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       unsubscribe();
       document.removeEventListener('visibilitychange', handleModalResume);
       window.removeEventListener('focus', handleModalResume);
+      window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose, onSuccess]);
 
@@ -152,8 +158,20 @@ export const LoginModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-800 bg-stone-900/95 shrink-0">
           <div className="flex items-center gap-2.5">

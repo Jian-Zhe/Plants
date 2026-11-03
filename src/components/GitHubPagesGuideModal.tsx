@@ -9,6 +9,15 @@ interface Props {
 export const GitHubPagesGuideModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [copiedStep, setCopiedStep] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleCopy = (text: string, id: string) => {
@@ -66,8 +75,20 @@ jobs:
         uses: actions/deploy-pages@v4`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 overflow-hidden">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-800 bg-stone-900/90 sticky top-0">
           <div className="flex items-center gap-3">

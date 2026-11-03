@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
-import { X, Download, Upload, Trash2, CheckCircle, AlertTriangle, FileText, Sparkles } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { X, Download, Upload, Trash2, CheckCircle, AlertTriangle, FileText, Sparkles, Wand2 } from 'lucide-react';
 import {
   exportPlantsJSON,
   importPlantsJSON,
+  deduplicateAllPlants,
   clearAllPlants,
   loadDefaultPresets,
   deletePresetPlantsOnly,
@@ -22,6 +23,15 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -53,8 +63,11 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
       reader.onload = async (event) => {
         const text = event.target?.result as string;
         try {
-          const count = await importPlantsJSON(text, userUid);
-          setStatusMessage({ type: 'success', text: `成功匯入 ${count} 筆植物資料！${userUid ? ' (已同步至雲端)' : ''}` });
+          const res = await importPlantsJSON(text, userUid);
+          setStatusMessage({
+            type: 'success',
+            text: `匯入成功！新增 ${res.added} 筆，智慧合併更新 ${res.updated} 筆，目前共 ${res.total} 筆植物。已自動去重！`,
+          });
           const updated = await getAllPlants();
           onDataChanged(updated);
         } catch (importErr) {
@@ -66,6 +79,24 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
       setStatusMessage({ type: 'error', text: '讀取檔案失敗：' + String(err) });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeduplicate = async () => {
+    setIsProcessing(true);
+    try {
+      const removed = await deduplicateAllPlants(userUid);
+      const updated = await getAllPlants();
+      onDataChanged(updated);
+      if (removed > 0) {
+        setStatusMessage({ type: 'success', text: `智慧清理完成！已自動合併並移除 ${removed} 筆重複植物。` });
+      } else {
+        setStatusMessage({ type: 'success', text: '圖鑑非常乾淨，未發現重複名稱的植物！' });
+      }
+    } catch (err) {
+      setStatusMessage({ type: 'error', text: '清理失敗：' + String(err) });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -112,8 +143,20 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-3 sm:p-4 flex flex-col justify-center items-center animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-2xl sm:rounded-3xl bg-stone-900 border border-stone-700 shadow-2xl text-stone-100 flex flex-col max-h-[calc(100dvh-2rem)] sm:max-h-[90vh] overflow-hidden my-auto relative"
+      >
         {/* Header (pinned to top) */}
         <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-stone-800 bg-stone-900/95 shrink-0">
           <div className="flex items-center gap-3">
@@ -127,7 +170,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition"
+            className="p-2 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -178,12 +221,28 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
                 <Upload className="w-5 h-5" />
               </div>
               <span className="font-semibold text-stone-200">匯入還原備份</span>
-              <span className="text-xs text-stone-400 mt-1">選擇先前匯出的 .json 備份檔</span>
+              <span className="text-xs text-stone-400 mt-1">智慧比對更新，防同名重複</span>
             </label>
           </div>
 
           {/* Quick Actions */}
           <div className="pt-3 border-t border-stone-800 space-y-3">
+            {/* Deduplicate Button */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold text-stone-300">智慧清理重複植物</div>
+                <p className="text-[11px] text-stone-500">掃描並自動合併同名或重複植物，保留最新照片與備註</p>
+              </div>
+              <button
+                onClick={handleDeduplicate}
+                disabled={isProcessing}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-300 hover:text-white bg-blue-950/50 hover:bg-blue-900/60 border border-blue-700/60 rounded-lg transition cursor-pointer disabled:opacity-50"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                <span>清理重複項</span>
+              </button>
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs font-semibold text-stone-300">刪除預設植物</div>
@@ -192,7 +251,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
               <button
                 onClick={handleDeletePresets}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-300 hover:text-white bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 rounded-lg transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-amber-300 hover:text-white bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 rounded-lg transition cursor-pointer disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>清除預設植物</span>
@@ -207,7 +266,7 @@ export const BackupModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, t
               <button
                 onClick={handleClearAll}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-300 hover:text-white bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition cursor-pointer disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>清空圖鑑</span>
