@@ -13,6 +13,8 @@ import {
   ArrowUpDown,
   Calendar,
   Sparkles,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { PlantFilterOptions, PlantItem } from '../types/plant';
 
@@ -21,9 +23,18 @@ interface Props {
   filters: PlantFilterOptions;
   onChange: (filters: PlantFilterOptions) => void;
   filteredCount: number;
+  viewMode: 'grid' | 'list';
+  onViewModeChange: (mode: 'grid' | 'list') => void;
 }
 
-export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filteredCount }) => {
+export const FilterBar: React.FC<Props> = ({
+  plants,
+  filters,
+  onChange,
+  filteredCount,
+  viewMode,
+  onViewModeChange,
+}) => {
   const [showAdvancedDesktop, setShowAdvancedDesktop] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
@@ -183,6 +194,36 @@ export const FilterBar: React.FC<Props> = ({ plants, filters, onChange, filtered
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* View Mode Switcher (Grid Cards vs List Items) */}
+        <div className="flex items-center bg-stone-900 border border-stone-800 rounded-xl p-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => onViewModeChange('grid')}
+            className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+              viewMode === 'grid'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-stone-400 hover:text-stone-200'
+            }`}
+            title="圖鑑卡片模式"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">卡片</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('list')}
+            className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
+              viewMode === 'list'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-stone-400 hover:text-stone-200'
+            }`}
+            title="列點清單模式 (只列出植物名稱速覽)"
+          >
+            <List className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">列點模式</span>
+          </button>
         </div>
 
         {/* Mobile: Filter & Sort Drawer Button (< sm) */}

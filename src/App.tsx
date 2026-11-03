@@ -12,6 +12,7 @@ import { loginWithGoogle, logoutUser, subscribeToAuth, handleAuthRedirect, refre
 import { Navbar } from './components/Navbar';
 import { FilterBar } from './components/FilterBar';
 import { PlantCard } from './components/PlantCard';
+import { PlantListView } from './components/PlantListView';
 import { PlantDetailModal } from './components/PlantDetailModal';
 import { PlantFormModal } from './components/PlantFormModal';
 import { BackupModal } from './components/BackupModal';
@@ -51,6 +52,7 @@ export default function App() {
   const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isOnlyFavorites, setIsOnlyFavorites] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Filter State
   const [filters, setFilters] = useState<PlantFilterOptions>({
@@ -350,6 +352,8 @@ export default function App() {
           filters={filters}
           onChange={setFilters}
           filteredCount={filteredPlants.length}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
 
         {/* Main Content Area */}
@@ -430,6 +434,18 @@ export default function App() {
               </button>
             </div>
           </div>
+        ) : viewMode === 'list' ? (
+          /* List Mode (Clean & Fast Name Browsing) */
+          <PlantListView
+            plants={filteredPlants}
+            onSelect={setSelectedPlant}
+            onEdit={(p) => {
+              setEditingPlant(p);
+              setIsFormOpen(true);
+            }}
+            onDelete={handleDeletePlant}
+            onToggleFavorite={handleToggleFavorite}
+          />
         ) : (
           /* Standard Grid View */
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">

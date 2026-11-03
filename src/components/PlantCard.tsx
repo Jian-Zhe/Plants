@@ -229,15 +229,21 @@ export const PlantCard: React.FC<Props> = ({
               <Edit3 className="w-3.5 h-3.5" />
             </button>
             <button
+              type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                if (window.confirm(`確定要刪除「${plant.name}」的記錄嗎？`)) {
+                if (e.nativeEvent && typeof e.nativeEvent.stopImmediatePropagation === 'function') {
+                  e.nativeEvent.stopImmediatePropagation();
+                }
+                const plantName = plant.name || '此植物';
+                if (window.confirm(`確定要刪除「${plantName}」的記錄嗎？`)) {
                   onDelete(plant.id);
                 }
               }}
               title="刪除"
               aria-label="刪除植物記錄"
-              className="p-1 text-stone-400 hover:text-rose-400 rounded hover:bg-stone-800 transition"
+              className="p-1.5 text-stone-400 hover:text-rose-400 rounded-lg hover:bg-stone-800 transition cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
